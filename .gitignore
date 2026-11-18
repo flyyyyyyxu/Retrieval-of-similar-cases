@@ -1,0 +1,23 @@
+# 配置与凭据
+.env
+
+# 本地数据：检索记录、反馈、真实文书缓存
+var/
+*.db
+eval/runs/
+
+# 真实数据样例只能放脱敏后的 backend/fixtures/，原始导出放这里
+data/
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+
+# 前端 / 其他
+node_modules/
+frontend/qa/*.png
+.DS_Store
+*.tar.gz

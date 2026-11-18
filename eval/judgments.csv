@@ -1,0 +1,5 @@
+query_id,case_id,relevance,reason
+q001,loan-1,2,示例：争点与证据情况都相近
+q001,loan-3,2,示例：事实相近但结论相反，适合作差异参考
+q001,labor-1,0,示例：案由不同
+q002,loan-1,2,示例：有聊天记录印证
