@@ -19,5 +19,6 @@ __pycache__/
 # 前端 / 其他
 node_modules/
 frontend/qa/*.png
+frontend/qa/report-generated/
 .DS_Store
 *.tar.gz

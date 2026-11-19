@@ -25,7 +25,7 @@
     },
     "/api/query/parse": {
       "post": {
-        "summary": "案情 → 可编辑的检索条件",
+        "summary": "内部检索要素提取",
         "operationId": "parse_api_query_parse_post",
         "requestBody": {
           "content": {
@@ -61,9 +61,47 @@
         }
       }
     },
+    "/api/query/optimize": {
+      "post": {
+        "summary": "优化检索问题（一次短调用）",
+        "operationId": "optimize_api_query_optimize_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ParseRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OptimizeResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/search": {
       "post": {
-        "summary": "用确认后的条件检索",
+        "summary": "按内部检索要素查找案例",
         "operationId": "search_api_search_post",
         "requestBody": {
           "content": {
@@ -82,6 +120,44 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/SearchResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/search/answer": {
+      "post": {
+        "summary": "综合结论与裁判观点（策略预留）",
+        "operationId": "search_answer_api_search_answer_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SearchAnswerRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchAnswer"
                 }
               }
             }
@@ -121,6 +197,83 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/CaseDetail"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/search/{search_id}/filters": {
+      "get": {
+        "summary": "结果筛选可选值",
+        "operationId": "get_filter_options_api_search__search_id__filters_get",
+        "parameters": [
+          {
+            "name": "search_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Search Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultFilterOptions"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/search/filter": {
+      "post": {
+        "summary": "十二维结果筛选",
+        "operationId": "apply_result_filters_api_search_filter_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResultFilterRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultFilterResponse"
                 }
               }
             }
@@ -204,6 +357,200 @@
         "responses": {
           "204": {
             "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/reports": {
+      "get": {
+        "summary": "已保存的检索报告",
+        "operationId": "list_reports_api_reports_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ReportSummary"
+                  },
+                  "type": "array",
+                  "title": "Response List Reports Api Reports Get"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "生成选定类案的可编辑检索报告",
+        "operationId": "create_report_api_reports_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReportCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RetrievalReport"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/reports/{report_id}": {
+      "get": {
+        "summary": "Get Report",
+        "operationId": "get_report_api_reports__report_id__get",
+        "parameters": [
+          {
+            "name": "report_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Report Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RetrievalReport"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "保存编辑后的报告",
+        "operationId": "update_report_api_reports__report_id__put",
+        "parameters": [
+          {
+            "name": "report_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Report Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReportUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RetrievalReport"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/reports/{report_id}/download": {
+      "get": {
+        "summary": "下载已保存报告的 Word 或 PDF",
+        "operationId": "download_report_api_reports__report_id__download_get",
+        "parameters": [
+          {
+            "name": "report_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Report Id"
+            }
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "enum": [
+                "docx",
+                "pdf"
+              ],
+              "type": "string",
+              "title": "Format"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
           },
           "422": {
             "description": "Validation Error",
@@ -315,6 +662,7 @@
             "enum": [
               "demo",
               "guiding",
+              "typical",
               "reference",
               "judgment"
             ],
@@ -330,6 +678,93 @@
               }
             ],
             "title": "Source Url"
+          },
+          "updated_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated Date"
+          },
+          "procedure": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Procedure"
+          },
+          "word_count": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Word Count"
+          },
+          "claim_amount": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Claim Amount"
+          },
+          "case_fee": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Case Fee"
+          },
+          "disclosure_level": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Disclosure Level"
+          },
+          "has_hearing_video": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Has Hearing Video"
+          },
+          "cause_path": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Cause Path"
           },
           "missing_fields": {
             "items": {
@@ -350,6 +785,28 @@
             "type": "boolean",
             "title": "Full Text Available",
             "default": true
+          },
+          "law_references": {
+            "items": {
+              "$ref": "#/components/schemas/LawReference"
+            },
+            "type": "array",
+            "title": "Law References"
+          },
+          "content_sections": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/CaseSection"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Content Sections",
+            "description": "可选摘要分栏：null=尚未适配，可按原文段落展示；[]=无摘要；只展示有内容项"
           }
         },
         "type": "object",
@@ -360,6 +817,48 @@
           "paragraphs"
         ],
         "title": "CaseDetail"
+      },
+      "CaseSection": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "enum": [
+              "overview",
+              "opinion",
+              "facts",
+              "claims",
+              "defense",
+              "issues",
+              "evidence",
+              "result",
+              "related"
+            ],
+            "title": "Key"
+          },
+          "text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Text"
+          },
+          "paragraph_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Paragraph Ids"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key"
+        ],
+        "title": "CaseSection"
       },
       "CaseSummary": {
         "properties": {
@@ -455,6 +954,7 @@
             "enum": [
               "demo",
               "guiding",
+              "typical",
               "reference",
               "judgment"
             ],
@@ -470,6 +970,93 @@
               }
             ],
             "title": "Source Url"
+          },
+          "updated_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated Date"
+          },
+          "procedure": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Procedure"
+          },
+          "word_count": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Word Count"
+          },
+          "claim_amount": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Claim Amount"
+          },
+          "case_fee": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Case Fee"
+          },
+          "disclosure_level": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Disclosure Level"
+          },
+          "has_hearing_video": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Has Hearing Video"
+          },
+          "cause_path": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Cause Path"
           },
           "missing_fields": {
             "items": {
@@ -632,7 +1219,9 @@
           "year_from": {
             "anyOf": [
               {
-                "type": "integer"
+                "type": "integer",
+                "maximum": 2100.0,
+                "minimum": 1900.0
               },
               {
                 "type": "null"
@@ -643,7 +1232,9 @@
           "year_to": {
             "anyOf": [
               {
-                "type": "integer"
+                "type": "integer",
+                "maximum": 2100.0,
+                "minimum": 1900.0
               },
               {
                 "type": "null"
@@ -762,6 +1353,157 @@
         ],
         "title": "Hit"
       },
+      "LawArticle": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "number": {
+            "type": "string",
+            "title": "Number",
+            "description": "条号，如 第四十七条"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text",
+            "description": "数据源提供的原始条文，不由展示层补全"
+          },
+          "paragraph_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Paragraph Ids",
+            "description": "本文援引该条的段落"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "number",
+          "text"
+        ],
+        "title": "LawArticle"
+      },
+      "LawReference": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version"
+          },
+          "authority": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Authority"
+          },
+          "published_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published Date"
+          },
+          "effective_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Effective Date"
+          },
+          "source_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Url"
+          },
+          "articles": {
+            "items": {
+              "$ref": "#/components/schemas/LawArticle"
+            },
+            "type": "array",
+            "title": "Articles"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title"
+        ],
+        "title": "LawReference"
+      },
+      "OptimizeResponse": {
+        "properties": {
+          "original_text": {
+            "type": "string",
+            "title": "Original Text"
+          },
+          "optimized_text": {
+            "type": "string",
+            "title": "Optimized Text"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ready",
+              "unavailable"
+            ],
+            "title": "Status"
+          },
+          "notice": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notice"
+          }
+        },
+        "type": "object",
+        "required": [
+          "original_text",
+          "optimized_text",
+          "status"
+        ],
+        "title": "OptimizeResponse"
+      },
       "Paragraph": {
         "properties": {
           "id": {
@@ -879,7 +1621,7 @@
           "case_type"
         ],
         "title": "ParsedQuery",
-        "description": "系统对用户案情的理解。前端展示给用户确认、修改后再检索。"
+        "description": "检索链路内部使用的结构化案情，不要求用户逐项确认。"
       },
       "Point": {
         "properties": {
@@ -910,6 +1652,704 @@
           "origin"
         ],
         "title": "Point"
+      },
+      "ReportAttributes": {
+        "properties": {
+          "bold": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bold"
+          },
+          "italic": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Italic"
+          },
+          "underline": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Underline"
+          },
+          "strike": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Strike"
+          },
+          "header": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "enum": [
+                  1,
+                  2,
+                  3
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Header"
+          },
+          "align": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "center",
+                  "right",
+                  "justify"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Align"
+          },
+          "list": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "ordered",
+                  "bullet"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "List"
+          },
+          "indent": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 4.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Indent"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "ReportAttributes"
+      },
+      "ReportCreateRequest": {
+        "properties": {
+          "search_id": {
+            "type": "string",
+            "title": "Search Id"
+          },
+          "case_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 50,
+            "minItems": 1,
+            "title": "Case Ids"
+          },
+          "filters": {
+            "$ref": "#/components/schemas/ResultFilters"
+          }
+        },
+        "type": "object",
+        "required": [
+          "search_id",
+          "case_ids"
+        ],
+        "title": "ReportCreateRequest"
+      },
+      "ReportOp": {
+        "properties": {
+          "insert": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "$ref": "#/components/schemas/ReportPyramid"
+              }
+            ],
+            "title": "Insert"
+          },
+          "attributes": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReportAttributes"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "insert"
+        ],
+        "title": "ReportOp"
+      },
+      "ReportPyramid": {
+        "properties": {
+          "reportPyramid": {
+            "items": {
+              "$ref": "#/components/schemas/ReportTier"
+            },
+            "type": "array",
+            "maxItems": 8,
+            "minItems": 1,
+            "title": "Reportpyramid"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "reportPyramid"
+        ],
+        "title": "ReportPyramid"
+      },
+      "ReportSummary": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "case_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Case Ids"
+          },
+          "data_mode": {
+            "type": "string",
+            "enum": [
+              "mock",
+              "es",
+              "replay"
+            ],
+            "title": "Data Mode"
+          },
+          "updated_at": {
+            "type": "string",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "case_ids",
+          "data_mode",
+          "updated_at"
+        ],
+        "title": "ReportSummary"
+      },
+      "ReportTier": {
+        "properties": {
+          "label": {
+            "type": "string",
+            "maxLength": 40,
+            "title": "Label"
+          },
+          "count": {
+            "type": "integer",
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Count"
+          },
+          "color": {
+            "type": "string",
+            "pattern": "^#[0-9a-fA-F]{6}$",
+            "title": "Color"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "label",
+          "count",
+          "color"
+        ],
+        "title": "ReportTier"
+      },
+      "ReportUpdate": {
+        "properties": {
+          "title": {
+            "type": "string",
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Title"
+          },
+          "ops": {
+            "items": {
+              "$ref": "#/components/schemas/ReportOp"
+            },
+            "type": "array",
+            "maxItems": 20000,
+            "minItems": 1,
+            "title": "Ops"
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Revision"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "title",
+          "ops",
+          "revision"
+        ],
+        "title": "ReportUpdate"
+      },
+      "ResultFilterOptions": {
+        "properties": {
+          "search_id": {
+            "type": "string",
+            "title": "Search Id"
+          },
+          "scope": {
+            "type": "string",
+            "const": "returned_results",
+            "title": "Scope",
+            "default": "returned_results"
+          },
+          "court_levels": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Court Levels"
+          },
+          "reference_levels": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Reference Levels"
+          },
+          "courts": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Courts"
+          },
+          "causes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Causes"
+          },
+          "procedures": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Procedures"
+          },
+          "doc_types": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Doc Types"
+          },
+          "disclosure_levels": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Disclosure Levels"
+          }
+        },
+        "type": "object",
+        "required": [
+          "search_id"
+        ],
+        "title": "ResultFilterOptions"
+      },
+      "ResultFilterRequest": {
+        "properties": {
+          "search_id": {
+            "type": "string",
+            "title": "Search Id"
+          },
+          "filters": {
+            "$ref": "#/components/schemas/ResultFilters"
+          }
+        },
+        "type": "object",
+        "required": [
+          "search_id"
+        ],
+        "title": "ResultFilterRequest"
+      },
+      "ResultFilterResponse": {
+        "properties": {
+          "search_id": {
+            "type": "string",
+            "title": "Search Id"
+          },
+          "scope": {
+            "type": "string",
+            "const": "returned_results",
+            "title": "Scope",
+            "default": "returned_results"
+          },
+          "hits": {
+            "items": {
+              "$ref": "#/components/schemas/Hit"
+            },
+            "type": "array",
+            "title": "Hits"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          }
+        },
+        "type": "object",
+        "required": [
+          "search_id",
+          "hits",
+          "total"
+        ],
+        "title": "ResultFilterResponse"
+      },
+      "ResultFilters": {
+        "properties": {
+          "court_levels": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Court Levels"
+          },
+          "reference_levels": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "guiding",
+                "typical",
+                "reference",
+                "judgment"
+              ]
+            },
+            "type": "array",
+            "title": "Reference Levels"
+          },
+          "courts": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Courts"
+          },
+          "causes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Causes"
+          },
+          "procedures": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Procedures"
+          },
+          "date_from": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Date From"
+          },
+          "date_to": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Date To"
+          },
+          "doc_types": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Doc Types"
+          },
+          "word_count_min": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Word Count Min"
+          },
+          "word_count_max": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Word Count Max"
+          },
+          "claim_amount_min": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Claim Amount Min"
+          },
+          "claim_amount_max": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Claim Amount Max"
+          },
+          "case_fee_min": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Case Fee Min"
+          },
+          "case_fee_max": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Case Fee Max"
+          },
+          "disclosure_levels": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Disclosure Levels"
+          },
+          "has_hearing_video": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Has Hearing Video"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "ResultFilters"
+      },
+      "RetrievalReport": {
+        "properties": {
+          "title": {
+            "type": "string",
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Title"
+          },
+          "ops": {
+            "items": {
+              "$ref": "#/components/schemas/ReportOp"
+            },
+            "type": "array",
+            "maxItems": 20000,
+            "minItems": 1,
+            "title": "Ops"
+          },
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "search_id": {
+            "type": "string",
+            "title": "Search Id"
+          },
+          "case_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Case Ids"
+          },
+          "data_mode": {
+            "type": "string",
+            "enum": [
+              "mock",
+              "es",
+              "replay"
+            ],
+            "title": "Data Mode"
+          },
+          "created_at": {
+            "type": "string",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "title": "Updated At"
+          },
+          "revision": {
+            "type": "integer",
+            "title": "Revision",
+            "default": 1
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "title",
+          "ops",
+          "id",
+          "search_id",
+          "case_ids",
+          "data_mode",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "RetrievalReport"
+      },
+      "SearchAnswer": {
+        "properties": {
+          "search_id": {
+            "type": "string",
+            "title": "Search Id"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "ready"
+            ],
+            "title": "Status",
+            "default": "pending"
+          },
+          "conclusion": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Point"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "judicial_view": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Point"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "search_id"
+        ],
+        "title": "SearchAnswer",
+        "description": "综合答复预留契约。策略接入后，两部分均需带通过原文校验的引用。"
+      },
+      "SearchAnswerRequest": {
+        "properties": {
+          "search_id": {
+            "type": "string",
+            "title": "Search Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "search_id"
+        ],
+        "title": "SearchAnswerRequest"
       },
       "SearchRequest": {
         "properties": {

@@ -1,0 +1,35 @@
+.document-reader{container: reader / inline-size}
+.reader-panels{display:grid;min-block-size:0;min-inline-size:0}
+.reader-tab-panel{grid-area:1/1;display:grid;min-block-size:0;min-inline-size:0}
+.reader-document-layout{position:relative;display:grid;grid-template-columns:132px minmax(0,1fr);min-block-size:0;min-inline-size:0;background:#fff}
+.reader-document-layout.directory-collapsed{grid-template-columns:38px minmax(0,1fr)}
+.reader-directory{display:flex;flex-direction:column;min-block-size:0;min-inline-size:0;border-inline-end:1px solid #e0e6e9;background:#fff}
+.reader-directory>header{display:flex;align-items:center;justify-content:space-between;gap:5px;padding:12px 9px 12px 15px;border-block-end:1px solid #e3e8eb;min-block-size:53px}
+.reader-directory strong{font-size:.875rem;font-weight:600;color:#263239}.reader-directory .icon-btn{inline-size:28px;min-inline-size:28px;block-size:28px;min-block-size:28px;color:#77888f}.reader-directory .icon{inline-size:16px;block-size:16px}
+.directory-collapsed .reader-directory>header{justify-content:center;padding-inline:2px}.directory-collapsed .reader-directory strong{display:none}
+.reader-toc{list-style:none;margin:0;padding:12px 0;overflow-y:auto;overscroll-behavior:contain;min-block-size:0}.native-outline .reader-toc{scroll-target-group:auto}
+.reader-toc a{display:block;padding:10px 12px 10px 15px;color:#5c6569;font-size:.75rem;line-height:1.8;border-inline-start:3px solid transparent;overflow-wrap:anywhere}
+.reader-toc a.target-current,.native-outline .reader-toc a:is(:target-current){background:#eff7fb;border-inline-start-color:#1681b5;color:#067aaf;font-weight:500}
+.reader-toc a:focus-visible{outline:2px solid #1681b5;outline-offset:-3px}
+.reader-scroll{min-block-size:0;min-inline-size:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable;outline-offset:-3px}
+.reader-paper{padding:27px 26px 64px;min-inline-size:0;background:#fff}
+.reader-document-heading h2{font-size:1.125rem;font-weight:600;line-height:1.8;margin-block:0 15px;color:#263037;overflow-wrap:anywhere}
+.reader-meta{display:flex;flex-wrap:wrap;align-items:center;gap:6px 0;font-size:.6875rem;line-height:1.85;color:#7d8589}
+.reader-meta>span+span{border-inline-start:1px solid #ccd3d6;margin-inline-start:9px;padding-inline-start:9px}
+.reader-source{display:flex;align-items:center;gap:7px;color:#6b7479;font-size:.75rem;margin-block-start:11px;inline-size:fit-content}.reader-source .icon{inline-size:16px;block-size:16px}.reader-source:hover{text-decoration:underline;text-underline-offset:4px}
+.reader-cause{margin-block:22px 28px;border:1px solid #e0e7eb}.reader-cause>summary{display:flex;align-items:center;justify-content:space-between;gap:12px;list-style:none;cursor:pointer;padding:11px 14px;background:#f2f8fb;color:#29343a;font-size:.8125rem;font-weight:600}
+.reader-cause>summary::-webkit-details-marker{display:none}.reader-cause>summary>.icon{inline-size:16px;block-size:16px}.reader-cause[open]>summary>.icon{transform:rotate(180deg)}
+.reader-cause-path{display:flex;flex-wrap:wrap;gap:5px 8px;padding:14px;font-size:.8125rem;color:#087db4;line-height:1.85}.cause-separator{color:#8c9aa3}.reader-cause-path .cause-missing{color:#8a9499}
+.reader-masthead{font-family:var(--serif);color:#333d42;text-align:center;padding-block:5px 27px}.reader-masthead>p{font-size:1.0625rem;line-height:1.9}.reader-masthead .reader-document-type{font-size:1.25rem;letter-spacing:.27em;margin-block:18px}.reader-masthead .reader-case-number{font-size:.9375rem;letter-spacing:0;margin-block-start:14px}
+.reader-document-section{margin-block:18px 30px;scroll-margin-block-start:18px}.reader-document-section>h3{border-inline-start:4px solid #1283b8;padding-inline-start:12px;font-size:1rem;font-weight:600;color:#2f3a40;line-height:1.5;margin-block-end:17px}
+.reader-paragraph{padding:0;margin-block-end:15px;scroll-margin-block-start:18px}.reader-paragraph p{font-family:var(--serif);font-size:1rem;line-height:2.05;white-space:pre-wrap;overflow-wrap:anywhere;text-indent:2em;color:#343b3e}
+/* Citation targets are static text. Focus supports assistive reading without a paragraph-wide frame. */
+.reader-paragraph:focus,.reader-document-section:focus{outline:none}.reader-target p{background:none;box-shadow:none}
+.reader-warning{font-size:.75rem;color:#98764c;background:#f9f5eb;padding:12px;line-height:1.9;margin-block:12px}.reader-message{padding:70px 25px;display:flex;align-items:center;justify-content:center;gap:12px;font-size:.8125rem;color:#788a71}
+@container reader (max-width:520px){
+  .reader-document-layout:not(.directory-collapsed){grid-template-columns:38px minmax(0,1fr)}
+  .reader-document-layout:not(.directory-collapsed)>.reader-directory{position:absolute;inset-block:0;inset-inline-start:0;inline-size:180px;z-index:3;box-shadow:8px 0 24px #293e491c}
+  .reader-document-layout:not(.directory-collapsed)>.reader-scroll{grid-column:2}
+  .reader-paper{padding:22px 18px 50px}.reader-meta{font-size:.6875rem}.reader-directory .icon-btn{min-inline-size:32px;min-block-size:36px}.reader-toc a{min-block-size:44px}
+}
+@media(max-width:760px){.reader-paper{padding-inline:18px}.reader-document-heading h2{font-size:1.0625rem}.reader-masthead>p{font-size:1rem}.reader-paragraph p{font-size:1rem}}

@@ -57,17 +57,20 @@ class LLM:
             api_key=self.s.anthropic_api_key or None,  # None → SDK 读环境变量
             base_url=self.s.anthropic_base_url or None,  # 走代理或网关时填写
             timeout=self.s.llm_timeout_s,
-            max_retries=2,  # SDK 自动重试 429 / 5xx / 网络错误
+            max_retries=self.s.llm_max_retries,
         )
 
-    def structured(self, system: str, user: str, output: type[T], effort: Effort = "medium") -> T:
+    def structured(
+        self, system: str, user: str, output: type[T], effort: Effort = "medium",
+        *, max_tokens: int = MAX_TOKENS,
+    ) -> T:
         """一次调用，返回符合 `output` 结构的对象。任何失败都抛 LLMError，由调用方降级。"""
         if not self.configured:
             raise LLMError("未配置 ANTHROPIC_API_KEY")
         try:
             if self.s.llm_api_style == "gateway":
-                return self._via_gateway(system, user, output)
-            return self._via_anthropic(system, user, output, effort)
+                return self._via_gateway(system, user, output, max_tokens)
+            return self._via_anthropic(system, user, output, effort, max_tokens)
         except anthropic.AuthenticationError as e:
             raise LLMError("ANTHROPIC_API_KEY 无效") from e
         except anthropic.PermissionDeniedError as e:
@@ -83,11 +86,13 @@ class LLM:
 
     # ---- 直连官方接口：结构化输出 ----
 
-    def _via_anthropic(self, system: str, user: str, output: type[T], effort: Effort) -> T:
+    def _via_anthropic(
+        self, system: str, user: str, output: type[T], effort: Effort, max_tokens: int
+    ) -> T:
         extra = {"betas": [FALLBACK_BETA], "fallbacks": "default"} if self.s.llm_fallbacks else {}
         resp = self.client.beta.messages.parse(
             model=self.s.llm_model,
-            max_tokens=MAX_TOKENS,
+            max_tokens=max_tokens,
             system=system,
             messages=[{"role": "user", "content": user}],
             output_format=output,
@@ -101,7 +106,7 @@ class LLM:
 
     # ---- 公司网关：指令写进用户消息，自行校验 JSON ----
 
-    def _via_gateway(self, system: str, user: str, output: type[T]) -> T:
+    def _via_gateway(self, system: str, user: str, output: type[T], max_tokens: int) -> T:
         schema = json.dumps(output.model_json_schema(), ensure_ascii=False)
         content = (
             f"{system}\n\n"
@@ -110,7 +115,7 @@ class LLM:
         )
         resp = self.client.messages.create(
             model=self.s.llm_model,
-            max_tokens=MAX_TOKENS,
+            max_tokens=max_tokens,
             messages=[{"role": "user", "content": content}],
         )
         _check_stop(resp.stop_reason)

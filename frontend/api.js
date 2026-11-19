@@ -1,42 +1,68 @@
 /* 后端 API 客户端。页面代码只通过这里访问后端，不直接连 ES 或模型。
  * 字段定义以 docs/openapi.json（由 backend/app/schemas.py 生成）为准。
- * 用法：await QinganAPI.parse('案情...') → 用户确认条件 → QinganAPI.search(query)
+ * 用法：输入问题 → 内部 parse → search → answer；用户无需确认结构化条件。
  */
-window.QinganAPI = (() => {
+export const api = (() => {
   'use strict';
   const BASE = '/api';
 
-  async function request(path, { method = 'GET', body } = {}) {
-    const res = await fetch(BASE + path, {
+  async function request(path, { method = 'GET', body, signal, responseType } = {}) {
+    let res;
+    try { res = await fetch(BASE + path, {
       method,
       headers: body ? { 'Content-Type': 'application/json' } : undefined,
       body: body ? JSON.stringify(body) : undefined,
-    });
+      signal,
+    }); } catch (error) {
+      if (error.name === 'AbortError') throw error;
+      throw new Error('无法连接检索服务，请检查网络和后端是否启动。');
+    }
     if (!res.ok) {
       const detail = await res.json().catch(() => ({}));
-      const err = new Error(detail.detail || `请求失败（${res.status}）`);
+      const message = typeof detail.detail === 'string' ? detail.detail
+        : Array.isArray(detail.detail) ? detail.detail.map(item => item.msg).join('；')
+        : `请求失败（${res.status}），请稍后重试。`;
+      const err = new Error(message);
       err.status = res.status;
       throw err;
     }
-    return res.status === 204 ? null : res.json();
+    return res.status === 204 ? null : responseType === 'blob' ? res.blob() : res.json();
   }
 
   return {
-    /** 运行状态：数据模式（mock/es/replay）、模型与重排是否可用 */
-    health: () => request('/health'),
+    /** 配置状态（不代表实时探活）：数据模式、模型、重排 */
+    health: options => request('/health', options),
 
-    /** 案情 → { query: ParsedQuery, degraded: [] }，query 展示给用户编辑 */
-    parse: (text) => request('/query/parse', { method: 'POST', body: { text } }),
+    /** 内部检索适配，不展示条件确认页 */
+    parse: (text, options) => request('/query/parse', { ...options, method: 'POST', body: { text } }),
 
-    /** 确认后的 ParsedQuery → { search_id, data_mode, hits, degraded, took_ms } */
-    search: (query, size = 10) => request('/search', { method: 'POST', body: { query, size } }),
+    /** 独立的可选问题优化；只在用户点击按钮时调用 */
+    optimize: (text, options) => request('/query/optimize', { ...options, method: 'POST', body: { text } }),
 
-    /** 文书详情，含 paragraphs[{id, section, text}] 供原文定位 */
-    getCase: (caseId) => request(`/cases/${encodeURIComponent(caseId)}`),
+    /** 综合答复预留，SearchAnswer: conclusion + judicial_view，各自附引用 */
+    answer: (searchId, options) => request('/search/answer', { ...options, method: 'POST', body: { search_id: searchId } }),
+
+    /** 内部 ParsedQuery + 手选地域/年份/层级 Filters → { search_id, data_mode, hits, degraded, took_ms } */
+    search: (query, options) => request('/search', { ...options, method: 'POST', body: { query, size: 10 } }),
+
+    /** 十二类过滤条件：ResultFilters / ResultFilterOptions；当前 scope=returned_results */
+    filterOptions: (searchId, options) => request(`/search/${encodeURIComponent(searchId)}/filters`, options),
+    filterResults: (searchId, filters, options) => request('/search/filter', { ...options, method: 'POST', body: { search_id: searchId, filters } }),
+
+    /** 报告使用受限 Delta ops；格式定义以 schemas.py 为准。下载前先保存最新编辑内容。 */
+    createReport: (searchId, caseIds, filters) => request('/reports', { method: 'POST', body: { search_id: searchId, case_ids: caseIds, filters } }),
+    reports: () => request('/reports'),
+    getReport: id => request(`/reports/${encodeURIComponent(id)}`),
+    saveReport: (id, body) => request(`/reports/${encodeURIComponent(id)}`, { method: 'PUT', body }),
+    downloadReport: (id, format) => request(`/reports/${encodeURIComponent(id)}/download?format=${format}`, { responseType: 'blob' }),
+
+    /** 文书详情：paragraphs 供原文定位；content_sections 为可选摘要列表，null=未适配，[]=无摘要 */
+    getCase: (caseId, options) => request(`/cases/${encodeURIComponent(caseId)}`, options),
 
     /** 单篇相似点/差异点，点开案例时再调用 */
-    explain: (caseId, query, searchId) =>
+    explain: (caseId, query, searchId, options) =>
       request(`/cases/${encodeURIComponent(caseId)}/explain`, {
+        ...options,
         method: 'POST',
         body: { query, search_id: searchId },
       }),

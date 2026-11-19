@@ -1,86 +1,849 @@
-/* View ↔ repository boundary: replace repository.search() with an API adapter later. */
-(() => {
-'use strict';
-const {topics,cases,laws}=window.QINGAN_DATA;
-const $=(s,root=document)=>root.querySelector(s);
-const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const icons={search:'<circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 4 4"/>',arrow:'<path d="M4 12h16m-6-6 6 6-6 6"/>',back:'<path d="M20 12H4m6-6-6 6 6 6"/>',plus:'<path d="M12 4v16M4 12h16"/>',book:'<path d="M12 5v15M3 4c4-1 6 0 9 2 3-2 5-3 9-2v14c-4-1-6 0-9 2-3-2-5-3-9-2Z"/>',history:'<path d="M3 10a9 9 0 1 1 1 7M3 4v6h6m3-3v6l4 2"/>',bookmark:'<path d="M6 3h12v18l-6-4-6 4Z"/>',filter:'<path d="M4 6h16M7 12h10M10 18h4"/><circle cx="9" cy="6" r="2" fill="currentColor"/><circle cx="15" cy="12" r="2" fill="currentColor"/>',chevron:'<path d="m6 9 6 6 6-6"/>',close:'<path d="m6 6 12 12M6 18 18 6"/>',check:'<path d="m5 12 4 4L19 6"/>',file:'<path d="M14 3H5v18h14V8Zm0 0v5h5M8 12h8m-8 4h8"/>',external:'<path d="M14 3h7v7m0-7L10 14m0-9H3v16h16v-7"/>',menu:'<path d="M4 6h16M4 12h16M4 18h16"/>',info:'<circle cx="12" cy="12" r="9"/><path d="M12 11v6m0-11v1"/>'};
-const icon=(n,cls='')=>`<svg class="icon ${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${icons[n]||icons.file}</svg>`;
-const logo=()=>`<a href="#/" class="brand" aria-label="清案，返回产品首页"><span class="brand-mark">${icon('book')}</span><span>清案</span><span class="brand-divider"></span><small>类案检索</small></a>`;
-const read=(k,f)=>{try{return JSON.parse(localStorage.getItem(k))??f;}catch{return f;}};
-const save=()=>{try{localStorage.setItem('qingan.history',JSON.stringify(state.history));localStorage.setItem('qingan.saved',JSON.stringify(state.saved));}catch{toast('浏览器未允许保存，本次操作仍然有效');}};
-const blank=()=>({region:'',year:'',level:'',cause:''});
-const state={query:'',draft:'',topic:null,filters:blank(),entryFilters:blank(),sort:'relevance',status:'idle',tab:'cases',expanded:new Set(),caseTabs:{},history:read('qingan.history',[]),saved:read('qingan.saved',[]),resultsY:0,failNext:false,request:0,more:false,returnTo:'results'};
-const repository={async search(query,filters,{fail=false}={}){await new Promise(r=>setTimeout(r,1350));if(fail)throw new Error('演示请求失败');const topic=Object.keys(topics).find(k=>topics[k].keywords.test(query))||null;return {topic};},list(topic,filters,sort){let list=cases.filter(c=>c.topic===topic&&Object.entries(filters).every(([k,v])=>!v||c[k]===v));return list.sort((a,b)=>sort==='newest'?b.date.localeCompare(a.date):sort==='oldest'?a.date.localeCompare(b.date):b.score-a.score);}};
-let currentView='',loadTimer=null,docObserver;
-function toast(msg){const el=$('#toast');el.textContent=msg;el.classList.add('show');clearTimeout(toast.timer);toast.timer=setTimeout(()=>el.classList.remove('show'),2300);}
-const demoBadge=()=>`<button class="demo-badge" data-action="demo">交互原型 <span>· 演示数据</span></button>`;
-const opt=(values,value)=>values.map(v=>`<option value="${esc(v)}" ${v===value?'selected':''}>${esc(v)}</option>`).join('');
-function filtersHtml(f,entry=false){return `<div class="filter-grid" data-filter-set="${entry?'entry':'result'}">${[['region','地域',['上海','北京','浙江','广东']],['year','裁判年份',['2025','2024','2023']],['level','法院层级',['基层法院','中级法院','高级法院']],['cause','案由',Object.values(topics).map(t=>t.name)]].map(([key,label,values])=>`<label>${label}<select name="${key}" data-filter="${key}" aria-label="${label}"><option value="">不限${label}</option>${opt(values,f[key])}</select></label>`).join('')}<button class="text-button filter-reset" data-action="reset-filters" data-entry="${entry}">重置条件</button></div>`;}
-const tags=(f)=>Object.entries(f).filter(([,v])=>v).map(([k,v])=>`<button class="filter-tag" data-action="remove-filter" data-key="${k}">${esc(v)} ${icon('close')}</button>`).join('');
-function landing(){return `<div class="landing refined-home"><header class="landing-header">${logo()}<a href="#/search" class="quiet-link">进入工作区 ${icon('arrow')}</a></header><main class="home-main" id="overview"><section class="home-intro"><span class="eyebrow">法律知识与类案检索</span><h1>找到相近的案件，<br>看清裁判的依据。</h1><p>描述案情与争点，比较相关案例的事实和观点。<br>沿着引用，回到文书与法条核对。</p><a href="#/search" class="btn primary">开始检索 ${icon('arrow')}</a><ol class="home-path" id="workflow"><li><span>01</span> 描述案情</li><li><span>02</span> 比较类案</li><li><span>03</span> 核对原文</li></ol></section><section class="home-examples" id="scenarios" aria-labelledby="examples-title"><div class="home-example-heading"><h2 id="examples-title">从一个具体问题开始</h2><span>演示场景</span></div><div class="scenario-tabs" role="tablist" aria-label="使用场景">${Object.entries(topics).map(([k,t],i)=>`<button role="tab" id="scenario-tab-${k}" aria-controls="scenario-panel" aria-selected="${i===0}" data-action="scenario" data-topic="${k}">${t.name}</button>`).join('')}</div><div id="scenario-panel" role="tabpanel" aria-labelledby="scenario-tab-labor">${scenarioPanel('labor')}</div><div class="home-example-note">示例问题可修改后提交，结果支持筛选与原文定位。</div></section></main><footer class="home-footer"><span>清案 · 类案检索原型</span><span>虚构案例与未核验条文，仅用于交互演示</span></footer></div>`;}
+import { api } from './api.js';
+import { $, esc, toast, loading, empty, caseHash, modeLabel } from './ui.js';
+import { state, persist, documentKey, explanationKey, currentCase, saveResult, updateRecord, sortedHits } from './store.js';
+import { route, navigate } from './router.js';
+import { workspace } from './components/layout.js';
+import { openDrawer, closeDrawer, updateDrawer, explanationContent } from './components/drawer.js';
+import { homePage, examples } from './views/home.js';
+import { searchPage } from './views/search.js';
+import { resultPage } from './views/results.js';
+import { casePage } from './views/case.js';
+import { collectionPage } from './views/collections.js';
+import { caseCard } from './components/case-card.js';
+import { lawList, citingCases } from './components/law-list.js';
+import { openReader, activateReader, closeReaderTab, rememberReaderScroll, positionReader, refreshReader, toggleReaderDirectory } from './components/reader.js';
+import { filterFields, positionFilter, hideFilters, readFilters } from './components/filter-panel.js';
+import { reportsPage, ensureReports, mountReportEditor, preserveReportEditor, generateReport, saveReport, retryReports } from './views/reports.js';
+import { blankScope, readSearchScope } from './components/search-scope.js';
+import { openFavoriteChooser, createFolderInChooser, saveFavorite, removeFavorite, openNewFolderDialog, addFolder } from './components/favorites.js';
 
-function scenarioPanel(key){const t=topics[key];return `<h3>${t.question}</h3><div class="scenario-focus"><span class="mini-label">检索关注点</span><p>${t.focus}</p></div><button class="quiet-link" data-action="use-scenario" data-topic="${key}">填入这个问题 ${icon('arrow')}</button>`;}
+let operation = 0;
+let controller;
+const documentJobs = new Map();
+const documentQueue = [];
+const queuedDocuments = new Set();
+let activeDocuments = 0;
+let caseObserver;
+let observer;
+let previousView;
+let renderVersion = 0;
+let filterRequest = 0;
+const go = hash => navigate(hash, render);
 
-function sidebar(view){return `<aside class="sidebar" id="workspace-navigation"><div class="sidebar-brand">${logo()}</div><a href="#/search" class="btn new-search" data-action="new-search">${icon('plus')} 新建检索</a><nav aria-label="工作区导航">${state.query&&state.status==='done'?`<a href="#/results" class="${['results','case'].includes(view)?'active':''}">${icon('search')} 当前检索</a>`:''}<a href="#/history" class="${view==='history'?'active':''}">${icon('history')} 历史记录 <span>${state.history.length||''}</span></a><a href="#/saved" class="${view==='saved'?'active':''}">${icon('bookmark')} 我的收藏 <span>${state.saved.length||''}</span></a></nav>${state.history.length?`<div class="sidebar-recent"><span class="mini-label">最近检索</span>${state.history.slice(0,3).map(h=>`<button data-action="open-history" data-id="${h.id}" title="${esc(h.query)}">${esc(h.query)}</button>`).join('')}</div>`:''}<div class="sidebar-bottom"><a href="#/">${icon('back')} 产品介绍</a>${demoBadge()}</div></aside>`;}
+function cancelOperation() {
+  operation++;
+  controller?.abort();
+  if (state.parseStatus === 'loading') state.parseStatus = 'idle';
+  if (state.resultStatus === 'loading') {
+    state.resultStatus = state.result ? 'done' : 'idle';
+    if (state.result) {
+      state.answerStatus = 'pending';
+      state.progressOpen = false;
+      state.progress.filter(step => step.status === 'running').forEach(step => {
+        Object.assign(step, { status: 'skipped', detail: '已停止整理答复，案例结果已保留。' });
+      });
+    }
+  }
+}
 
-function workspace(view,content){return `<div class="workspace">${sidebar(view)}<div class="workspace-main"><header class="work-header"><button class="icon-btn mobile-menu" data-action="toggle-nav" aria-label="展开导航" aria-controls="workspace-navigation" aria-expanded="false">${icon('menu')}</button><a href="#/" class="mobile-brand">清案</a></header><main id="main-content">${content}</main></div></div>`;}
+function announce(text) {
+  $('#announcer').textContent = text;
+}
 
-function searchPage(){return `<div class="search-page"><div class="search-heading"><h1>类案检索</h1><p>输入事实与争议焦点，查找可参考的裁判。</p></div><search><form id="search-form" class="search-form" novalidate><label class="query-label" for="query">案情或法律问题 <span>必填</span></label><textarea id="query" name="query" required aria-describedby="query-error" maxlength="2000" placeholder="例如：试用期内未告知录用条件，公司能否以考核不合格解除劳动合同？">${esc(state.draft)}</textarea><div class="input-bottom"><button type="button" class="text-button" data-action="toggle-entry-filters" aria-controls="entry-filters" aria-expanded="${state.more}">${icon('filter')} 检索条件 ${Object.values(state.entryFilters).filter(Boolean).length?`<span class="count">${Object.values(state.entryFilters).filter(Boolean).length}</span>`:''}${icon('chevron')}</button><span id="query-count">${state.draft.length} / 2000</span><button class="btn primary" type="submit">检索 ${icon('arrow')}</button></div><p id="query-error" class="form-error" role="alert" hidden></p></form></search><div id="entry-filters" ${state.more?'':'hidden'}>${filtersHtml(state.entryFilters,true)}</div><div class="example-heading"><span>示例问题</span><span>点击填入</span></div><div class="example-list">${Object.entries(topics).map(([key,t],i)=>`<button data-action="example" data-topic="${key}"><span class="example-number">0${i+1}</span><div><span class="mini-label">${t.name}</span><p>${t.question}</p></div>${icon('arrow')}</button>`).join('')}</div></div>`;}
-function queryHeading(){return `<div class="query-heading"><div><span class="mini-label">当前检索问题</span><h1>${esc(state.query)}</h1></div><button class="btn small" data-action="edit-query">修改问题</button></div>`;}
-function resultPage(){if(state.status==='loading')return `<div class="results-page">${queryHeading()}<section class="loading-state" role="status" aria-live="polite"><span class="loader"></span><h2 id="loading-title">正在解析问题</h2><p>提取争议焦点，准备相关案例</p><div class="loading-steps"><span class="active">解析问题</span><i></i><span>检索案例</span><i></i><span>整理结果</span></div><button class="text-button" data-action="cancel-search">取消检索</button></section></div>`;
-if(state.status==='error')return `<div class="results-page">${queryHeading()}${empty('本次检索未完成','演示请求失败，问题和筛选条件已保留。可重试继续。',`<button class="btn primary" data-action="retry">重新检索 ${icon('arrow')}</button>`)}</div>`;
-const t=topics[state.topic],list=repository.list(state.topic,state.filters,state.sort),ls=t?laws.filter(l=>t.laws.includes(l.id)):[];
-return `<div class="results-page">${queryHeading()}<details class="result-filters" ${Object.values(state.filters).some(Boolean)?'open':''}><summary>${icon('filter')} 筛选条件 <span>${Object.values(state.filters).filter(Boolean).length?'已选择 '+Object.values(state.filters).filter(Boolean).length+' 项':'地域、年份、法院层级、案由'}</span>${icon('chevron')}</summary>${filtersHtml(state.filters)}</details><div class="active-filters">${tags(state.filters)}</div>${t&&list.length?`<section class="analysis-summary"><details><summary><strong>检索摘要</strong><span>${t.focus}</span>${icon('chevron')}</summary><div class="summary-content"><p>${t.summary}</p><div class="summary-links"><span>参考依据</span><button data-action="open-case" data-id="${list[0].id}" data-section="4">${list[0].title} ${icon('external')}</button><button data-action="open-law" data-id="${t.laws[0]}">${laws.find(l=>l.id===t.laws[0]).article} ${icon('external')}</button></div><p class="comparison-factors">${t.factors.map((f,i)=>`<span>${i+1}. ${f}</span>`).join('')}</p></div></details></section>`:''}<div class="result-toolbar"><div class="tabs" role="tablist" aria-label="检索结果类型"><button role="tab" aria-selected="${state.tab==='cases'}" data-action="result-tab" data-tab="cases">相关案例 <span>${list.length}</span></button><button role="tab" aria-selected="${state.tab==='laws'}" data-action="result-tab" data-tab="laws">引用法条 <span>${list.length?ls.length:0}</span></button></div>${state.tab==='cases'?`<label class="sort-label">排序<select id="sort" aria-label="结果排序"><option value="relevance" ${state.sort==='relevance'?'selected':''}>关联程度</option><option value="newest" ${state.sort==='newest'?'selected':''}>裁判日期从新到旧</option><option value="oldest" ${state.sort==='oldest'?'selected':''}>裁判日期从旧到新</option></select></label>`:''}</div><div class="result-content" role="tabpanel">${!list.length?empty('没有找到符合条件的案例',t?'可放宽筛选条件，或补充案情后重新检索。':'当前演示支持劳动争议、合同纠纷和民间借贷。请尝试示例问题。',t?'<button class="btn" data-action="reset-filters">清除筛选条件</button>':'<a class="btn primary" href="#/search">尝试示例问题</a>'):state.tab==='cases'?list.map((c,i)=>caseRow(c,i)).join(''):ls.map(l=>lawRow(l,list)).join('')}</div>${list.length?`<div class="list-end">已展示全部 ${list.length} 条演示案例 <span>·</span> 请结合原文核对适用条件</div>`:''}</div>`;}
-function caseRow(c,i,collection=false){const selected=state.caseTabs[c.id]||'opinion',ex=state.expanded.has(c.id),saved=state.saved.includes(c.id);return `<article class="case-row" id="row-${c.id}"><div class="case-index">${String(i+1).padStart(2,'0')}</div><div class="case-body"><div class="case-topline"><span class="match-label ${c.match==='不同裁判结果'?'different':''}">${c.match}</span><span class="doc-type">民事判决书</span></div><div class="case-title-line"><button class="case-title" data-action="open-case" data-id="${c.id}" ${collection?'data-origin="saved"':''}>${c.title}</button><button class="icon-btn bookmark ${saved?'is-saved':''}" data-action="save-case" data-id="${c.id}" aria-label="${saved?'取消收藏':'收藏案例'}" aria-pressed="${saved}" title="${saved?'取消收藏':'收藏案例'}">${icon('bookmark')}</button></div><div class="case-meta"><span>${c.court}</span><span>${c.number}</span><span>${c.date}</span></div><div class="case-tabs" role="tablist" aria-label="${c.title}摘要">${[['opinion','裁判观点'],['facts','案件事实'],['result','裁判结果']].map(([k,label])=>`<button role="tab" aria-selected="${selected===k}" data-action="case-tab" data-id="${c.id}" data-tab="${k}">${label}</button>`).join('')}</div><p class="case-excerpt ${ex?'expanded':''}">${esc(c[selected])}</p>${ex?`<p class="case-difference"><strong>对照提示</strong>${c.difference}</p>`:''}<div class="case-bottom"><button class="text-button" data-action="expand-case" data-id="${c.id}">${ex?'收起摘要':'展开摘要'} ${icon('chevron',ex?'rotate':'')}</button><button class="text-button view-original" data-action="open-case" data-id="${c.id}" data-section="4" ${collection?'data-origin="saved"':''}>查看原文 ${icon('arrow')}</button></div></div></article>`;}
-function lawRow(l,list){return `<article class="law-row"><span class="mini-label">${l.version} · 演示条文节选</span><button class="law-title" data-action="open-law" data-id="${l.id}">${l.title} ${icon('arrow')}</button><h3>${l.article}</h3><p>${l.text}</p><div class="law-footer"><span>被当前 ${list.filter(c=>c.laws.includes(l.id)).length} 条案例引用</span><button class="text-button" data-action="open-law" data-id="${l.id}">查看条文与引用关系 ${icon('arrow')}</button></div></article>`;}
-function empty(title,description,action=''){return `<div class="empty-state">${icon('search')}<h2>${title}</h2><p>${description}</p>${action}</div>`;}
-function collectionPage(view){if(view==='saved'){const list=state.saved.map(id=>cases.find(c=>c.id===id)).filter(Boolean);return `<div class="collection-page"><div class="collection-heading"><div><h1>我的收藏</h1><p>留存值得进一步核对的案例。</p></div><span>${list.length} 个案例</span></div>${list.length?list.map((c,i)=>caseRow(c,i,true)).join(''):empty('还没有收藏案例','在检索结果或文书详情中，点击书签即可收藏。','<a class="btn primary" href="#/search">开始检索</a>')}</div>`;}return `<div class="collection-page"><div class="collection-heading"><div><h1>历史记录</h1><p>继续之前的检索，保留当时的条件与排序。</p></div><span>${state.history.length} 条记录</span></div>${state.history.length?`<div class="history-list">${state.history.map(h=>`<article><div><span class="mini-label">${new Date(h.time).toLocaleString('zh-CN',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'})} <i>·</i> ${topics[h.topic]?.name||'其他问题'}</span><button data-action="open-history" data-id="${h.id}">${esc(h.query)} ${icon('arrow')}</button><p>${Object.values(h.filters).filter(Boolean).join(' · ')||'不限筛选条件'}</p></div><button class="icon-btn" data-action="delete-history" data-id="${h.id}" aria-label="删除这条检索记录" title="删除记录">${icon('close')}</button></article>`).join('')}</div>`:empty('还没有检索记录','提交问题后，检索记录会保存在当前浏览器。','<a class="btn primary" href="#/search">开始检索</a>')}</div>`;}
-function detailPage(id,section){const c=cases.find(x=>x.id===id);if(!c)return empty('没有找到该文书','该演示案例不存在。','<a class="btn" href="#/search">返回检索</a>');const saved=state.saved.includes(c.id);return `<div class="document-page"><div class="document-toolbar"><button class="text-button" data-action="back-results">${icon('back')} ${state.returnTo==='saved'?'返回我的收藏':'返回检索结果'}</button><div><button class="btn small ${saved?'saved-button':''}" data-action="save-case" data-id="${c.id}" aria-pressed="${saved}">${icon('bookmark')} ${saved?'已收藏':'收藏案例'}</button><button class="btn small" data-action="copy-citation" data-id="${c.id}">复制引用</button></div></div><div class="document-layout"><nav class="document-toc" aria-label="文书目录"><span class="mini-label">文书目录</span>${c.sections.map((s,i)=>`<a href="#/case/${id}/${i}" class="${Number(section)===i?'active':''}">${s}</a>`).join('')}</nav><article class="document-paper"><div class="document-heading"><span class="eyebrow">${c.cause} <span>／</span> 民事判决书</span><h1>${c.title}</h1><div class="doc-metadata"><span>${c.court}</span><span>${c.number}</span><span>裁判日期 ${c.date}</span></div><p class="document-demo">虚构文书示例 · 以下内容用于交互演示，非真实裁判文书</p></div>${c.sections.map((s,i)=>`<section class="doc-section ${String(section)===String(i)?'target-section':''}" id="doc-${i}"><h2><span>${String(i+1).padStart(2,'0')}</span>${s}${String(section)===String(i)?'<small>引用定位</small>':''}</h2>${i===0?`<p>原告：${c.title.split('与')[0]}。被告：${c.title.split('与')[1].replace(/(?:劳动争议案|劳动合同纠纷案|买卖合同纠纷案|合同纠纷案|民间借贷纠纷案)$/,'')}。</p>`:i===1?'<p>本院受理双方纠纷后，依法组成审判组织进行了审理。双方就争议事实、证据及法律适用发表了意见。本案现已审理终结。</p>':i===2?`<p>原告请求法院就${topics[c.topic].focus}作出审查，并根据案件事实及证据支持相应诉讼请求。</p><p>被告就相关请求提出异议，认为应结合合同约定及实际履行情况判断。</p>`:i===3?`<p>${c.facts}</p><p>双方分别提交书面材料、沟通记录和其他相关凭证。本院结合证据之间的关联性，对能够相互印证的事实予以确认。</p>`:i===4?`<p class="quoted-paragraph">${c.opinion}</p><p>本案需重点审查的事项包括：${topics[c.topic].factors.join('、')}。${c.difference}</p><p>相关条文：${c.laws.map(id=>{const l=laws.find(x=>x.id===id);return `<button class="inline-reference" data-action="open-law" data-id="${id}">《${l.title}》${l.article}</button>`;}).join('、')}。</p>`:`<p>${c.result}</p>`}</section>`).join('')}<div class="doc-end">—— 演示文书结束 ——</div></article></div></div>`;}
-function updateRecord(){const h=state.history.find(h=>h.id===state.activeHistory);if(h){Object.assign(h,{filters:{...state.filters},sort:state.sort,tab:state.tab,scroll:window.scrollY});save();}}
-function render(){closeOverlay(false);docObserver?.disconnect();const parts=location.hash.replace(/^#\/?/,'').split('/');const view=['overview','scenarios','workflow'].includes(parts[0])?'home':parts[0]||'home';currentView=view;document.title=({home:'清案 · 法律知识与类案检索',search:'新建检索 · 清案',results:'检索结果 · 清案',history:'历史记录 · 清案',saved:'我的收藏 · 清案',case:'文书阅读 · 清案'})[view]||'清案';$('#app').innerHTML=view==='home'?landing():workspace(view,view==='search'?searchPage():view==='results'?resultPage():view==='case'?detailPage(parts[1],parts[2]):['history','saved'].includes(view)?collectionPage(view):empty('页面不存在','返回工作区开始检索。','<a class="btn" href="#/search">返回检索</a>'));if(view==='case'){requestAnimationFrame(()=>{const target=parts[2]!==undefined?$('#doc-'+parts[2]):null;if(target)target.scrollIntoView({block:'start'});else window.scrollTo(0,0);const sections=document.querySelectorAll('.doc-section');docObserver=new IntersectionObserver(entries=>{for(const e of entries)if(e.isIntersecting){document.querySelectorAll('.document-toc a').forEach(a=>a.classList.toggle('active',a.hash.endsWith('/'+e.target.id.slice(4))));}},{rootMargin:'-100px 0px -65% 0px'});sections.forEach(s=>docObserver.observe(s));});}else if(view==='results'&&state.status==='done')requestAnimationFrame(()=>window.scrollTo(0,state.resultsY));else window.scrollTo(0,0);}
-function navigate(hash){if(location.hash===hash)render();else location.hash=hash;}
-async function runSearch(query,filters=state.entryFilters){if(!query.trim()){const error=$('#query-error');if(error){error.hidden=false;error.textContent='请先描述案情或输入法律问题。';$('#query').setAttribute('aria-invalid','true');$('#query').focus();}return;}const request=++state.request;state.query=query.trim();state.draft=query.trim();state.filters={...filters};state.sort='relevance';state.tab='cases';state.resultsY=0;state.expanded.clear();state.status='loading';const fail=state.failNext;state.failNext=false;navigate('#/results');clearTimeout(loadTimer);loadTimer=setTimeout(()=>{const title=$('#loading-title');if(title){title.textContent='正在检索相关案例';document.querySelectorAll('.loading-steps span')[1]?.classList.add('active');}},600);try{const result=await repository.search(state.query,state.filters,{fail});if(request!==state.request)return;state.topic=result.topic;state.status='done';const record={id:Date.now().toString(36),query:state.query,topic:state.topic,filters:{...state.filters},sort:state.sort,tab:state.tab,time:Date.now(),scroll:0};state.activeHistory=record.id;state.history.unshift(record);state.history=state.history.slice(0,30);save();render();}catch{if(request!==state.request)return;state.status='error';render();}}
-function openHistory(id){const h=state.history.find(h=>h.id===id);if(!h)return;state.request++;Object.assign(state,{query:h.query,draft:h.query,topic:h.topic,filters:{...h.filters},sort:h.sort||'relevance',tab:h.tab||'cases',status:'done',activeHistory:h.id,resultsY:h.scroll||0});navigate('#/results');}
-function overlay(content,kind='drawer'){$('#overlay').innerHTML=`<dialog class="${kind}" closedby="any" aria-labelledby="dialog-title">${content}</dialog>`;const dialog=$('dialog');dialog.querySelector('[data-action="close-overlay"]')?.setAttribute('autofocus','');dialog.showModal();if(!('closedBy' in HTMLDialogElement.prototype)){let downOutside=false;const outside=e=>{const r=dialog.getBoundingClientRect();return e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom;};dialog.addEventListener('pointerdown',e=>downOutside=outside(e));dialog.addEventListener('pointerup',e=>{if(downOutside&&outside(e))dialog.close();});}}
+function render({ focus = false } = {}) {
+  preserveReportEditor();
+  rememberReaderScroll();
+  state.filterOpen = false;
+  const version = ++renderVersion;
+  const current = route();
+  closeDrawer();
+  observer?.disconnect();
+  caseObserver?.disconnect();
+  const title = { home: '清案 · 可信类案检索', search: '新建检索 · 清案', results: '检索结果 · 清案', case: '文书阅读 · 清案', history: '历史记录 · 清案', saved: '我的收藏 · 清案', reports: '检索报告 · 清案' };
+  document.title = title[current.view] || '清案';
+  let content;
+  if (current.view === 'home') content = homePage();
+  else {
+    const pages = {
+      search: () => searchPage(), results: () => resultPage(),
+      case: () => casePage(current.id, current.paragraph),
+      history: () => collectionPage('history'), saved: () => collectionPage('saved'),
+      reports: () => reportsPage(current.id),
+    };
+    content = pages[current.view]?.() || empty('页面不存在', '返回工作区继续检索。', '<a class="btn" href="#/search">返回检索</a>');
+    const connection = state.healthError ? `<aside class="service-notice connection-error" role="alert">${esc(state.healthError)} <button type="button" class="text-button" data-action="retry-health">重新连接</button></aside>` : '';
+    content = workspace(current.view, connection + content);
+  }
+  $('#app').innerHTML = content;
+  const activeAtRender = document.activeElement;
+  const viewChanged = current.view !== previousView;
+  previousView = current.view;
+  requestAnimationFrame(() => {
+    if (version !== renderVersion) return;
+    const mayMoveFocus = document.activeElement === activeAtRender || document.activeElement === document.body;
+    if (current.view === 'case') {
+      const target = current.paragraph && document.getElementById(`doc-${current.paragraph}`);
+      if (target) {
+        target.scrollIntoView({ block: 'start', behavior: 'instant' });
+        if ((focus || viewChanged) && mayMoveFocus) target.focus({ preventScroll: true });
+      } else if (viewChanged) window.scrollTo({ top: 0, behavior: 'instant' });
+      observer = new IntersectionObserver(entries => {
+        for (const entry of entries) if (entry.isIntersecting) {
+          document.querySelectorAll('.document-toc a').forEach(link => {
+            link.classList.toggle('active', link.hash === caseHash(current.id, entry.target.id.slice(4)));
+          });
+        }
+      }, { rootMargin: '-90px 0px -60% 0px' });
+      document.querySelectorAll('.doc-section').forEach(section => observer.observe(section));
+    } else if (current.view === 'results' && state.resultStatus === 'done') {
+      window.scrollTo({ top: state.resultsY, behavior: 'instant' });
+    } else if (viewChanged) window.scrollTo({ top: 0, behavior: 'instant' });
+    if ((focus || viewChanged) && mayMoveFocus && !(current.view === 'case' && current.paragraph)) {
+      $('main h1, main h2')?.focus({ preventScroll: true });
+    }
+    positionReader();
+    if (current.view === 'reports' && current.id) mountReportEditor(current.id);
+  });
+  observeResultRows();
+  if (current.view === 'reports') ensureReports(current.id, render);
+  if (state.readerOpen && state.activeReaderId && !state.documents.has(documentKey(state.activeReaderId)) && !state.documentErrors.has(documentKey(state.activeReaderId))) loadDocument(state.activeReaderId);
+  if (current.view === 'case' && state.health && !state.documents.has(documentKey(current.id)) && !state.documentErrors.has(documentKey(current.id))) {
+    loadDocument(current.id);
+  }
+}
 
-function closeOverlay(){const dialog=$('dialog');if(dialog?.open)dialog.close();}
+async function connect() {
+  try {
+    state.health = await api.health();
+    state.healthError = '';
+  } catch (error) {
+    state.healthError = error.message;
+  }
+  if (route().view === 'results' && !state.result && !state.resultQuery && state.history[0]) {
+    restoreHistory(state.history[0].id, false);
+  }
+  render();
+}
 
-function openLaw(id){const l=laws.find(l=>l.id===id);if(!l)return;const list=repository.list(state.topic,state.filters,state.sort).filter(c=>c.laws.includes(id));overlay(`<div class="drawer-top"><span>引用法条</span><button class="icon-btn" data-action="close-overlay" aria-label="关闭法条">${icon('close')}</button></div><div class="drawer-content"><span class="eyebrow">法律条文 · 演示节选</span><h2 id="dialog-title">${l.title}</h2><div class="law-version">${l.version}<span>效力及版本待核验</span></div><section class="drawer-law"><h3>${l.article}</h3><p>${l.text}</p></section><p class="law-note">${icon('info')}${l.note}</p><div class="drawer-related"><h3>引用此条的当前案例 <span>${list.length}</span></h3>${list.length?list.map(c=>`<button data-action="open-case" data-id="${c.id}" data-section="4"><div><strong>${c.title}</strong><span>${c.court} · ${c.date}</span></div>${icon('arrow')}</button>`).join(''):'<p>此条文来自当前阅读的文书。</p>'}</div></div>`);}
-function openDemo(){overlay(`<div class="drawer-top"><span>原型说明</span><button class="icon-btn" data-action="close-overlay" aria-label="关闭说明">${icon('close')}</button></div><div class="drawer-content"><h2 id="dialog-title">体验完整的检索流程</h2><p>案例为虚构示例，法条为未核验节选，摘要为预设内容。此版本不连接真实案例库或模型服务。</p><div class="demo-controls"><h3>查看边界状态</h3><button class="btn" data-action="demo-empty">体验无结果状态 ${icon('arrow')}</button><button class="btn" data-action="demo-error">体验失败与重试 ${icon('arrow')}</button></div><p class="muted">历史记录和收藏仅保存在当前浏览器。</p></div>`,'modal');}
-document.addEventListener('submit',e=>{if(e.target.id==='search-form'){e.preventDefault();runSearch($('#query').value);}});
-document.addEventListener('input',e=>{if(e.target.id==='query'){state.draft=e.target.value;$('#query-count').textContent=e.target.value.length+' / 2000';$('#query-error').hidden=true;$('#query').removeAttribute('aria-invalid');}});
-document.addEventListener('change',e=>{if(e.target.matches('[data-filter]')){const entry=e.target.closest('[data-filter-set]').dataset.filterSet==='entry';(entry?state.entryFilters:state.filters)[e.target.dataset.filter]=e.target.value;if(!entry){state.resultsY=window.scrollY;updateRecord();render();}}if(e.target.id==='sort'){state.sort=e.target.value;state.resultsY=window.scrollY;updateRecord();render();}});
-document.addEventListener('click',async e=>{const b=e.target.closest('[data-action]');if(!b)return;const a=b.dataset.action,id=b.dataset.id;
-if(a==='new-search'){state.request++;state.draft='';state.entryFilters=blank();state.more=false;navigate('#/search');}
-if(a==='scenario'){document.querySelectorAll('.scenario-tabs button').forEach(x=>x.setAttribute('aria-selected',String(x===b)));$('#scenario-panel').innerHTML=scenarioPanel(b.dataset.topic);$('#scenario-panel').setAttribute('aria-labelledby',b.id);}
-if(a==='use-scenario'){state.draft=topics[b.dataset.topic].question;navigate('#/search');}
-if(a==='example'){state.draft=topics[b.dataset.topic].question;$('#query').value=state.draft;$('#query-count').textContent=state.draft.length+' / 2000';$('#query-error').hidden=true;$('#query').removeAttribute('aria-invalid');$('#query').focus();}
-if(a==='toggle-entry-filters'){state.more=!state.more;$('#entry-filters').hidden=!state.more;b.setAttribute('aria-expanded',state.more);}
-if(a==='reset-filters'){if(b.dataset.entry==='true'){state.entryFilters=blank();$('#entry-filters').innerHTML=filtersHtml(state.entryFilters,true);}else{state.filters=blank();state.resultsY=0;updateRecord();render();}}
-if(a==='remove-filter'){state.filters[b.dataset.key]='';state.resultsY=window.scrollY;updateRecord();render();}
-if(a==='edit-query'){state.draft=state.query;state.entryFilters={...state.filters};state.more=Object.values(state.filters).some(Boolean);state.request++;navigate('#/search');}
-if(a==='retry')runSearch(state.query,state.filters);
-if(a==='cancel-search'){state.request++;state.status='idle';navigate('#/search');}
-if(a==='result-tab'){state.tab=b.dataset.tab;state.resultsY=window.scrollY;updateRecord();render();}
-if(a==='case-tab'||a==='expand-case'){const y=window.scrollY;if(a==='case-tab')state.caseTabs[id]=b.dataset.tab;else state.expanded.has(id)?state.expanded.delete(id):state.expanded.add(id);const row=$('#row-'+id);if(row){const index=[...row.parentElement.children].indexOf(row);row.outerHTML=caseRow(cases.find(c=>c.id===id),index,currentView==='saved');}window.scrollTo(0,y);document.querySelector(`[data-action="${a}"][data-id="${id}"]${a==='case-tab'?`[data-tab="${b.dataset.tab}"]`:''}`)?.focus({preventScroll:true});}
-if(a==='open-case'){if(currentView!=='case'){state.returnTo=b.dataset.origin==='saved'?'saved':currentView==='saved'?'saved':'results';if(state.returnTo==='results'){state.resultsY=window.scrollY;updateRecord();}}closeOverlay(false);navigate(`#/case/${id}${b.dataset.section!==undefined?'/'+b.dataset.section:''}`);}
-if(a==='back-results')navigate(state.returnTo==='saved'?'#/saved':'#/results');
-if(a==='save-case'){const saved=state.saved.includes(id);state.saved=saved?state.saved.filter(x=>x!==id):[...state.saved,id];save();const y=window.scrollY;state.resultsY=y;render();requestAnimationFrame(()=>{window.scrollTo(0,y);document.querySelector(`[data-action="save-case"][data-id="${id}"]`)?.focus({preventScroll:true});});toast(saved?'已取消收藏':'已收藏，可在“我的收藏”中查看');}
-if(a==='open-law')openLaw(id);
-if(a==='close-overlay')closeOverlay();
-if(a==='open-history')openHistory(id);
-if(a==='delete-history'){state.history=state.history.filter(h=>h.id!==id);save();render();toast('已删除这条记录');}
-if(a==='copy-citation'){const c=cases.find(c=>c.id===id);const text=`【虚构演示案例】${c.title}，${c.court}，${c.number}，${c.date}。`;try{await navigator.clipboard.writeText(text);toast('已复制案例引用');}catch{overlay(`<div class="drawer-top"><h2 id="dialog-title">复制引用</h2><button class="icon-btn" data-action="close-overlay" aria-label="关闭">${icon('close')}</button></div><div class="drawer-content"><p>请选择并复制以下引用：</p><textarea class="copy-area" readonly>${esc(text)}</textarea></div>`,'modal');$('.copy-area').select();}}
-if(a==='demo')openDemo();
-if(a==='demo-empty'){closeOverlay();runSearch('试用期解除劳动合同',{...blank(),region:'上海',year:'2023'});}
-if(a==='demo-error'){closeOverlay();state.failNext=true;runSearch(topics.labor.question,blank());}
-if(a==='toggle-nav'){const open=$('.workspace').classList.toggle('nav-open');b.setAttribute('aria-expanded',String(open));}
+function showFormError(form, field, message, errorId) {
+  const error = $(`#${errorId}`, form);
+  error.hidden = false;
+  error.textContent = message;
+  field.setAttribute('aria-invalid', 'true');
+  field.setAttribute('aria-describedby', errorId);
+  field.focus();
+}
+
+function validQuestion(form) {
+  const field = $('#query', form);
+  const text = field.value.trim();
+  if (text.length < 5 || text.length > 5000) {
+    showFormError(form, field, '请填写5—5000字的案情或法律问题。', 'query-error');
+    return null;
+  }
+  return text;
+}
+
+function setStage(index, status, detail) {
+  Object.assign(state.progress[index], { status, detail });
+  if (route().view === 'results') render();
+  announce(detail);
+}
+
+async function startSearch(text, scope = state.searchFilters) {
+  if (state.resultStatus === 'loading') return;
+  cancelOperation();
+  cancelOptimization();
+  const request = operation;
+  controller = new AbortController();
+  const signal = controller.signal;
+  state.draft = text;
+  const inputFilters = structuredClone(scope);
+  state.resultInputFilters = inputFilters;
+  state.resultQuery = { raw_text: text, filters: inputFilters };
+  state.result = null;
+  state.answer = null;
+  state.answerStatus = 'idle';
+  state.resultStatus = 'loading';
+  state.resultError = '';
+  state.parseError = '';
+  state.sort = 'relevance';
+  state.resultsY = 0;
+  state.resultTab = 'cases';
+  state.resultFilters = {};
+  state.filteredHits = null;
+  state.filterOptions = null;
+  state.filterError = '';
+  state.filterStatus = 'idle';
+  state.caseView = 'list';
+  filterRequest++;
+  state.filterOpen = false;
+  state.selectedCases.clear();
+  state.reportCases.clear();
+  state.progressOpen = true;
+  state.progress = [
+    { label: '理解检索问题', status: 'running', detail: '识别案情中的争点与检索线索。' },
+    { label: '检索相关案例', status: 'waiting', detail: '等待检索线索整理完成。' },
+    { label: '整理检索答复', status: 'waiting', detail: '根据检索结果读取结论与裁判观点。' },
+  ];
+  go('#/results');
+  let stage = 0;
+  try {
+    const parsed = await api.parse(text, { signal });
+    if (request !== operation) return;
+    const query = parsed.query;
+    // User-selected values take precedence over inferred filters; unset controls
+    // still allow conditions explicitly written in the natural-language question.
+    query.filters = { ...query.filters, ...Object.fromEntries(Object.entries(inputFilters).filter(([, value]) => value != null && value !== '')) };
+    if (inputFilters.year_from != null || inputFilters.year_to != null) {
+      query.filters.year_from = inputFilters.year_from ?? null;
+      query.filters.year_to = inputFilters.year_to ?? null;
+    }
+    state.resultQuery = query;
+    state.parsed = query;
+    state.parseDegraded = parsed.degraded;
+    setStage(0, 'done', query.issues.length
+      ? `本次检索围绕：${query.issues.join('；')}。`
+      : '已整理检索线索，将按问题中的关键词查找案例。');
+    stage = 1;
+    setStage(1, 'running', '正在检索案例库，匹配问题中的事实与争议线索。');
+    const result = await api.search(query, { signal });
+    if (request !== operation) return;
+    result.degraded = [...new Set([...parsed.degraded, ...result.degraded])];
+    state.result = result;
+    if (state.health && state.health.data_mode !== result.data_mode) {
+      state.health.data_mode = result.data_mode;
+      state.readerOpen = false; state.readerTabs = [];
+      state.documents.clear();
+      state.explanations.clear();
+    }
+    setStage(1, 'done', `本次返回${result.hits.length}篇案例。${result.degraded.includes('rerank_skipped') ? '当前沿用基础召回排序，未进行模型重排。' : '已完成候选排序。'}`);
+    stage = 2;
+    state.answerStatus = 'loading';
+    setStage(2, 'running', '正在读取综合答复；具体案例的引用可逐篇核对。');
+    try {
+      state.answer = await api.answer(result.search_id, { signal });
+      if (request !== operation) return;
+      state.answerStatus = state.answer.status === 'ready' ? 'done' : 'pending';
+      setStage(2, state.answer.status === 'ready' ? 'done' : 'skipped', state.answer.status === 'ready'
+        ? '已返回结论与裁判观点，请结合原文引用复核。'
+        : '当前未生成综合答复，可先查看案例原文。');
+    } catch (error) {
+      if (request !== operation || error.name === 'AbortError') return;
+      state.answerStatus = 'error';
+      setStage(2, 'skipped', '综合答复暂不可用，案例检索结果已保留。');
+    }
+    if (request !== operation) return;
+    state.resultStatus = 'done';
+    state.progressOpen = false;
+    if (!saveResult()) toast('检索完成，但浏览器未能保存历史记录。');
+    render();
+    announce(`检索完成，返回${result.hits.length}条案例。处理过程已收起。`);
+  } catch (error) {
+    if (request !== operation || error.name === 'AbortError') return;
+    state.resultStatus = 'error';
+    state.resultError = error.message;
+    setStage(stage, 'error', error.message);
+  }
+}
+
+let optimizationController;
+let optimizationRequest = 0;
+function cancelOptimization() {
+  optimizationRequest++;
+  optimizationController?.abort();
+  state.optimizeStatus = 'idle';
+}
+
+async function optimizeQuestion() {
+  const form = $('#search-form');
+  if (!form || state.optimizeStatus === 'loading') return;
+  const text = validQuestion(form);
+  if (!text) return;
+  cancelOptimization();
+  const request = optimizationRequest;
+  optimizationController = new AbortController();
+  state.draft = text;
+  state.optimizeStatus = 'loading';
+  state.optimizeNotice = '';
+  state.optimization = null;
+  render();
+  try {
+    const response = await api.optimize(text, { signal: optimizationController.signal });
+    if (request !== optimizationRequest || state.draft.trim() !== text) return;
+    if (response.status === 'ready' && response.optimized_text !== text) {
+      state.optimization = response;
+      announce('问题优化完成，可预览后选择是否使用。');
+    } else {
+      state.optimizeNotice = response.notice || '优化结果与原问题一致，可以直接检索。';
+    }
+  } catch (error) {
+    if (request !== optimizationRequest || error.name === 'AbortError') return;
+    state.optimizeNotice = `${error.message} 原问题已保留。`;
+  } finally {
+    if (request === optimizationRequest) {
+      state.optimizeStatus = 'idle';
+      if (route().view === 'search') render();
+    }
+  }
+}
+
+function refreshCaseRow(id) {
+  for (const row of document.querySelectorAll('.reference-case')) {
+    if (row.dataset.caseId !== id) continue;
+    const collection = row.dataset.collection === 'true';
+    const hit = collection
+      ? { case: currentCase(id), snippets: [] }
+      : state.result?.hits.find(item => item.case.id === id);
+    if (!hit?.case) continue;
+    const index = [...row.parentElement.children].indexOf(row);
+    const focused = row.contains(document.activeElement) ? document.activeElement : null;
+    const focusId = focused?.id, action = focused?.dataset.action;
+    const scrollLeft = row.querySelector('.case-fields')?.scrollLeft || 0;
+    const template = document.createElement('template');
+    template.innerHTML = caseCard(hit, index, collection);
+    const replacement = template.content.firstElementChild;
+    row.replaceWith(replacement);
+    if (replacement.querySelector('.case-fields')) replacement.querySelector('.case-fields').scrollLeft = scrollLeft;
+    if (focusId) document.getElementById(focusId)?.focus({ preventScroll: true });
+    else if (focused?.matches('[data-select-case]')) replacement.querySelector('[data-select-case]')?.focus({ preventScroll: true });
+    else if (action) [...replacement.querySelectorAll('[data-action]')].find(button => button.dataset.action === action)?.focus({ preventScroll: true });
+  }
+}
+
+function observeResultRows() {
+  const current = route();
+  if (!state.health) return;
+  if (current.view === 'results' && state.resultStatus === 'done' && state.resultTab === 'laws') {
+    for (const hit of state.result.hits) queueDocument(hit.case.id);
+  } else if (['results', 'saved'].includes(current.view)) {
+    caseObserver = new IntersectionObserver(entries => {
+      for (const entry of entries) if (entry.isIntersecting && entry.target.isConnected) {
+        queueDocument(entry.target.dataset.caseId);
+        caseObserver.unobserve(entry.target);
+      }
+    }, { rootMargin: '180px' });
+    document.querySelectorAll('.reference-case').forEach(row => caseObserver.observe(row));
+  }
+  const all = $('#select-all-cases'), visible = sortedHits();
+  if (all) all.indeterminate = !all.checked && visible.some(hit => state.selectedCases.has(hit.case.id));
+}
+
+function queueDocument(id) {
+  const key = documentKey(id);
+  if (state.documents.has(key) || state.documentErrors.has(key) || documentJobs.has(key) || queuedDocuments.has(key)) return;
+  queuedDocuments.add(key);
+  documentQueue.push({ id, key });
+  pumpDocuments();
+}
+
+function pumpDocuments() {
+  while (activeDocuments < 3 && documentQueue.length) {
+    const { id, key } = documentQueue.shift();
+    queuedDocuments.delete(key);
+    if (key !== documentKey(id)) continue;
+    activeDocuments++;
+    loadDocument(id).finally(() => { activeDocuments--; pumpDocuments(); });
+  }
+}
+
+function loadDocument(id) {
+  const key = documentKey(id);
+  if (documentJobs.has(key)) return documentJobs.get(key);
+  if (state.documents.has(key)) return Promise.resolve();
+  const job = (async () => {
+    try {
+      state.documents.set(key, await api.getCase(id));
+    } catch (error) {
+      state.documentErrors.set(key, error.message);
+    } finally {
+      documentJobs.delete(key);
+    }
+    if (key !== documentKey(id)) return;
+    if (route().view === 'case' && route().id === id) render({ focus: true });
+    else {
+      refreshCaseRow(id);
+      refreshReader(id);
+      const laws = $('.laws-content');
+      if (laws && state.resultTab === 'laws') laws.innerHTML = lawList();
+    }
+  })();
+  documentJobs.set(key, job);
+  return job;
+}
+
+async function loadFilterOptions() {
+  const id = state.result?.search_id;
+  if (!id) return;
+  try {
+    const options = await api.filterOptions(id);
+    if (id !== state.result?.search_id) return;
+    state.filterOptions = options;
+    const host = $('#filter-form-host');
+    if (host) host.innerHTML = filterFields();
+  } catch (error) {
+    if (id !== state.result?.search_id) return;
+    const host = $('#filter-form-host');
+    if (host) host.innerHTML = `<p class="filter-loading">${esc(error.message)}</p><button type="button" class="btn small" data-action="retry-filter-options">重试</button>`;
+  }
+}
+
+async function applyFilters(filters) {
+  if (state.filterStatus === 'loading') return;
+  const id = state.result?.search_id, request = ++filterRequest;
+  state.filterStatus = 'loading';
+  const submit = $('#result-filter-form button[type=submit]');
+  if (submit) { submit.disabled = true; submit.textContent = '正在过滤…'; }
+  try {
+    const response = await api.filterResults(id, filters);
+    if (request !== filterRequest || id !== state.result?.search_id) return;
+    state.resultFilters = filters;
+    state.filteredHits = response.hits;
+    state.filterStatus = 'done';
+    hideFilters(); preserveResultPosition(); render();
+    $('[data-action=toggle-result-filters]')?.focus({ preventScroll: true });
+    announce(`过滤完成，返回${response.total}篇案例。`);
+  } catch (error) {
+    if (request !== filterRequest) return;
+    state.filterStatus = 'error';
+    const message = $('#filter-error');
+    if (message) { message.hidden = false; message.textContent = error.message; }
+    if (submit?.isConnected) { submit.disabled = false; submit.textContent = '应用过滤'; }
+  }
+}
+
+function selectedHits() {
+  return (state.result?.hits || []).filter(hit => state.selectedCases.has(hit.case.id));
+}
+
+function preserveResultPosition() {
+  state.resultsY = window.scrollY;
+  updateRecord();
+}
+
+function refreshSelection() {
+  document.querySelectorAll('.reference-case').forEach(row => {
+    const selected = state.selectedCases.has(row.dataset.caseId);
+    row.dataset.selected = selected;
+    const input = row.querySelector('[data-select-case]');
+    if (input) input.checked = selected;
+  });
+  const visible = sortedHits();
+  const master = $('#select-all-cases');
+  if (master) {
+    master.checked = visible.length > 0 && visible.every(hit => state.selectedCases.has(hit.case.id));
+    master.indeterminate = !master.checked && visible.some(hit => state.selectedCases.has(hit.case.id));
+  }
+  const count = $('.selection-count');
+  if (count) count.textContent = state.selectedCases.size ? `已选 ${state.selectedCases.size} 项` : '';
+  document.querySelectorAll('.batch-actions button').forEach(button => { button.disabled = !state.selectedCases.size; });
+}
+
+function refreshReportBasket() {
+  const button = $('[data-action=generate-report]');
+  if (button) {
+    button.setAttribute('aria-label', `生成检索报告，已加入${state.reportCases.size}篇案例`);
+    $('.report-badge', button).textContent = state.reportCases.size;
+  }
+  updateRecord();
+  announce(`检索报告已加入${state.reportCases.size}篇案例。`);
+}
+
+async function showExplanation(id) {
+  if (!state.result || !state.resultQuery) return;
+  const key = explanationKey(id);
+  const cached = state.explanations.get(key);
+  openDrawer('案情对照与差异', cached ? explanationContent(cached, id) : loading('正在对照案情', '仅展示具有原文引用的内容。'), key);
+  if (cached || state.explanationPending.has(key)) return;
+  state.explanationPending.add(key);
+  const query = structuredClone(state.resultQuery), searchId = state.result.search_id;
+  try {
+    const response = await api.explain(id, query, searchId);
+    // Fail closed if the backend ever returns points without verified references.
+    for (const field of ['similarities', 'differences']) {
+      response[field] = response[field].filter(point => point.citations.some(c => c.verified && c.case_id === id));
+    }
+    state.explanations.set(key, response);
+    updateDrawer(key, explanationContent(response, id));
+  } catch (error) {
+    updateDrawer(key, `${empty('对照暂未完成', error.message)}<button type="button" class="btn" data-action="explain" data-id="${esc(id)}">重试对照</button>`);
+  } finally {
+    state.explanationPending.delete(key);
+  }
+}
+
+function restoreHistory(id, navigateTo = true) {
+  const record = state.history.find(item => item.id === id);
+  if (!record) return;
+  if (state.health && record.response.data_mode !== state.health.data_mode) {
+    toast(`这条历史属于${modeLabel(record.response.data_mode)}，与当前数据模式不同。`);
+    return;
+  }
+  cancelOperation();
+  Object.assign(state, {
+    resultQuery: structuredClone(record.query), parsed: structuredClone(record.query),
+    draft: record.query.raw_text, result: structuredClone(record.response),
+    resultStatus: 'done', sort: record.sort || 'relevance', resultsY: record.scroll || 0,
+    activeHistory: record.id, parseDegraded: [],
+    progress: structuredClone(record.progress || []), progressOpen: false,
+    answer: structuredClone(record.answer || null), answerStatus: record.answerStatus || 'pending',
+    resultTab: record.resultTab || 'cases',
+    resultFilters: record.filteredHits ? record.resultFilters || {} : {},
+    filteredHits: record.filteredHits || null, caseView: record.caseView || 'list',
+    filterOptions: null,
+    reportCases: new Set(record.reportCaseIds || []),
+    resultInputFilters: structuredClone(record.inputFilters || record.query.filters || {}),
+    searchFilters: { ...blankScope(), ...(record.inputFilters || record.query.filters || {}) },
+  });
+  state.selectedCases.clear();
+  if (navigateTo) go('#/results');
+}
+
+function refreshFavorites(id) {
+  const y = window.scrollY;
+  closeDrawer(); render();
+  requestAnimationFrame(() => {
+    window.scrollTo({ top: y, behavior: 'instant' });
+    const button = [...document.querySelectorAll('[data-action=save-case]')].find(item => item.dataset.id === id);
+    (button || $('main h1'))?.focus({ preventScroll: true });
+  });
+}
+
+document.addEventListener('submit', event => {
+  if (event.target.id === 'favorite-form') {
+    event.preventDefault();
+    const result = saveFavorite(event.target);
+    if (result) { refreshFavorites(result.id); toast(`已收藏到「${result.folder.name}」`); }
+    return;
+  }
+  if (event.target.id === 'new-folder-form') {
+    event.preventDefault();
+    const folder = addFolder(String(new FormData(event.target).get('folder_name') || ''));
+    if (folder) { state.activeFolder = folder.id; closeDrawer(); render(); toast('收藏夹已创建'); }
+    return;
+  }
+  if (event.target.id === 'result-filter-form') {
+    event.preventDefault();
+    const filters = readFilters(event.target);
+    if (filters) applyFilters(filters);
+    return;
+  }
+  if (event.target.id === 'search-form') {
+    event.preventDefault();
+    const text = validQuestion(event.target);
+    const filters = readSearchScope(event.target, true);
+    if (text && filters) { state.searchFilters = filters; startSearch(text, filters); }
+  }
 });
-document.addEventListener('keydown',e=>{if(e.key==='Escape'){$('.workspace')?.classList.remove('nav-open');$('.mobile-menu')?.setAttribute('aria-expanded','false');}if(!e.isComposing&&e.key==='Enter'&&(e.ctrlKey||e.metaKey)&&e.target.id==='query'){e.preventDefault();runSearch(e.target.value);}});
-window.addEventListener('hashchange',()=>{const view=location.hash.split('/')[1];if(view!=='results'&&state.status==='loading'){state.request++;state.status='idle';}if(!['','/'].includes(location.hash.slice(1))&&!location.hash.startsWith('#/')){if(currentView!=='home')render();document.getElementById(location.hash.slice(1))?.scrollIntoView();return;}render();});
-// A reload can restore the last completed result, including filter and sort settings.
-if(location.hash.startsWith('#/results')&&state.history[0]){const h=state.history[0];Object.assign(state,{query:h.query,draft:h.query,topic:h.topic,filters:{...h.filters},sort:h.sort,tab:h.tab||'cases',status:'done',activeHistory:h.id,resultsY:h.scroll||0});}else if(location.hash.startsWith('#/results'))location.hash='#/search';
+
+document.addEventListener('input', event => {
+  if (event.target.matches('[data-option-search]')) {
+    const key = event.target.dataset.optionSearch, needle = event.target.value.trim();
+    document.querySelectorAll('[data-option-label]').forEach(label => {
+      if (label.dataset.optionLabel === key) label.hidden = !label.textContent.includes(needle);
+    });
+  }
+  if (event.target.setCustomValidity) event.target.setCustomValidity('');
+  if (event.target.id === 'query') {
+    state.draft = event.target.value;
+    if (state.optimizeStatus === 'loading') {
+      cancelOptimization();
+      const button = $('[data-action=optimize-question]');
+      if (button) { button.disabled = false; button.innerHTML = '✧ <span>问题优化</span>'; }
+    }
+    state.optimization = null;
+    $('.optimization-preview')?.remove();
+    state.optimizeNotice = '';
+    $('.optimization-notice')?.remove();
+    state.parseError = '';
+  }
+  const form = event.target.closest('form');
+  if (form) {
+    form.querySelectorAll('[aria-invalid]').forEach(input => input.removeAttribute('aria-invalid'));
+    const error = $('.form-error', form);
+    if (error) error.hidden = true;
+  }
+});
+
+document.addEventListener('change', event => {
+  if (event.target.matches('[data-search-scope]')) state.searchFilters = readSearchScope(event.target.form);
+  if (event.target.matches('[data-select-case]')) {
+    const id = event.target.dataset.selectCase;
+    event.target.checked ? state.selectedCases.add(id) : state.selectedCases.delete(id);
+    refreshSelection();
+  } else if (event.target.id === 'select-all-cases') {
+    for (const hit of sortedHits()) {
+      event.target.checked ? state.selectedCases.add(hit.case.id) : state.selectedCases.delete(hit.case.id);
+    }
+    refreshSelection();
+  }
+  if (event.target.id === 'sort') {
+    state.sort = event.target.value;
+    state.resultsY = window.scrollY;
+    updateRecord();
+    render();
+    $('#sort')?.focus({ preventScroll: true });
+  }
+});
+
+document.addEventListener('click', async event => {
+  const button = event.target.closest('[data-action]');
+  if (!button || button.disabled) return;
+  const action = button.dataset.action, id = button.dataset.id;
+  if (action === 'new-search' || action === 'use-example') {
+    event.preventDefault();
+    cancelOperation();
+    cancelOptimization();
+    state.optimization = null;
+    state.optimizeNotice = '';
+    state.draft = action === 'use-example' ? examples[Number(button.dataset.index)] || '' : '';
+    if (action === 'new-search') state.searchFilters = blankScope();
+    state.parsed = null;
+    state.parseDegraded = [];
+    state.parseError = '';
+    go('#/search');
+    requestAnimationFrame(() => $('#query')?.focus());
+  } else if (action === 'edit-query') {
+    cancelOperation();
+    state.draft = state.resultQuery.raw_text;
+    state.searchFilters = { ...blankScope(), ...state.resultInputFilters };
+    state.parsed = null;
+    state.optimization = null;
+    state.optimizeNotice = '';
+    go('#/search');
+    requestAnimationFrame(() => $('#query')?.focus());
+  } else if (action === 'reset-search-scope') {
+    state.searchFilters = blankScope(); render(); $('#scope-region')?.focus();
+  } else if (action === 'optimize-question') optimizeQuestion();
+  else if (action === 'apply-optimization') {
+    if (!state.optimization) return;
+    state.draft = state.optimization.optimized_text;
+    state.optimization = null;
+    state.optimizeNotice = '';
+    render();
+    $('#query')?.focus();
+  } else if (action === 'dismiss-optimization') {
+    state.optimization = null;
+    render();
+    $('#query')?.focus();
+  } else if (action === 'copy-question') {
+    try { await navigator.clipboard.writeText(state.resultQuery.raw_text); toast('已复制问题'); }
+    catch { toast('复制未完成，请选择问题文本复制。'); }
+  } else if (action === 'cancel') {
+    cancelOperation();
+    go('#/search');
+  } else if (action === 'retry-search') startSearch(state.resultQuery.raw_text, state.resultInputFilters);
+  else if (action === 'open-case') {
+    if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    event.preventDefault();
+    if (route().view === 'results') preserveResultPosition();
+    state.returnTo = route().view === 'saved' ? 'saved' : 'results';
+    const parts = (button.getAttribute('href') || '').split('/');
+    const target = parts[3] ? decodeURIComponent(parts[3]) : '';
+    closeDrawer();
+    openReader(id, target);
+    render();
+    if (!target || !state.documents.has(documentKey(id))) {
+      requestAnimationFrame(() => document.getElementById(`reader-tab-${encodeURIComponent(id)}`)?.focus({ preventScroll: true }));
+    }
+  } else if (action === 'reader-tab') {
+    activateReader(id); render();
+    document.getElementById(`reader-tab-${encodeURIComponent(id)}`)?.focus({ preventScroll: true });
+  } else if (action === 'reader-jump') {
+    event.preventDefault();
+    openReader(id, button.dataset.paragraph);
+    if ($('.document-reader')?.clientWidth <= 520) state.readerTabs.find(tab => tab.id === id).directoryCollapsed = true;
+    render();
+  } else if (action === 'toggle-reader-directory') {
+    toggleReaderDirectory(); render(); $('[data-action=toggle-reader-directory]')?.focus({ preventScroll: true });
+  } else if (action === 'close-reader-tab') {
+    closeReaderTab(id); render();
+    if (state.readerOpen) document.getElementById(`reader-tab-${encodeURIComponent(state.activeReaderId)}`)?.focus({ preventScroll: true });
+    else $('main h1')?.focus({ preventScroll: true });
+  } else if (action === 'close-reader') {
+    rememberReaderScroll(); state.readerOpen = false; render();
+    $('main h1')?.focus({ preventScroll: true });
+  } else if (action === 'retry-document') {
+    state.documentErrors.delete(documentKey(id));
+    loadDocument(id);
+    if (route().view === 'case') render();
+    else refreshCaseRow(id);
+  } else if (action === 'result-tab') {
+    preserveResultPosition();
+    state.resultTab = button.dataset.tab;
+    updateRecord(); render();
+    document.getElementById(`results-tab-${state.resultTab}`)?.focus({ preventScroll: true });
+  } else if (action === 'case-field' || action === 'expand-case') {
+    if (action === 'case-field') state.caseTabs.set(documentKey(id), button.dataset.field);
+    else state.expandedCases.has(documentKey(id)) ? state.expandedCases.delete(documentKey(id)) : state.expandedCases.add(documentKey(id));
+    refreshCaseRow(id);
+    const row = [...document.querySelectorAll('.reference-case')].find(item => item.dataset.caseId === id);
+    if (row) {
+      const selected = [...row.querySelectorAll('[role=tab]')].find(tab => tab.getAttribute('aria-selected') === 'true');
+      if (action === 'case-field') selected?.focus({ preventScroll: true });
+      const list = row.querySelector('.case-fields');
+      if (selected) {
+        if (selected.offsetLeft < list.scrollLeft) list.scrollLeft = selected.offsetLeft;
+        else if (selected.offsetLeft + selected.offsetWidth > list.scrollLeft + list.clientWidth) list.scrollLeft = selected.offsetLeft + selected.offsetWidth - list.clientWidth;
+      }
+    }
+    queueDocument(id);
+  } else if (action === 'toggle-result-filters') {
+    positionFilter();
+    const panel = $('#result-filter-popover');
+    if (!('commandForElement' in HTMLButtonElement.prototype)) {
+      if (panel.showPopover) panel.togglePopover();
+      else { panel.hidden = !panel.hidden; state.filterOpen = !panel.hidden; panel.classList.toggle('is-fallback-open', !panel.hidden); }
+    }
+    if (!state.filterOptions) loadFilterOptions();
+  } else if (action === 'close-filters') {
+    hideFilters();
+    requestAnimationFrame(() => $('[data-action=toggle-result-filters]')?.focus({ preventScroll: true }));
+  } else if (action === 'retry-filter-options') {
+    loadFilterOptions();
+  } else if (action === 'clear-result-filters') {
+    filterRequest++;
+    state.resultFilters = {}; state.filteredHits = null; state.filterError = '';
+    state.filterStatus = 'idle';
+    hideFilters(); preserveResultPosition(); render();
+    $('[data-action=toggle-result-filters]')?.focus({ preventScroll: true });
+  } else if (action === 'case-view') {
+    state.caseView = button.dataset.view;
+    preserveResultPosition(); render();
+    document.getElementById(`case-view-${state.caseView}`)?.focus({ preventScroll: true });
+  } else if (action === 'report-case') {
+    state.reportCases.has(id) ? state.reportCases.delete(id) : state.reportCases.add(id);
+    refreshCaseRow(id); refreshReportBasket();
+  } else if (action === 'report-selected') {
+    for (const hit of selectedHits()) { state.reportCases.add(hit.case.id); refreshCaseRow(hit.case.id); }
+    refreshReportBasket(); toast('选中案例已加入检索报告');
+  } else if (action === 'generate-report') {
+    preserveResultPosition(); generateReport(go, render);
+  } else if (action === 'save-report') saveReport();
+  else if (action === 'download-report') saveReport(button.dataset.format);
+  else if (action === 'retry-reports') retryReports(render);
+  else if (action === 'export-selected') {
+    const data = selectedHits().map(hit => ({ ...hit.case }));
+    const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
+    const link = document.createElement('a');
+    link.href = url; link.download = '类案检索-选中案例.json'; link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  } else if (action === 'print-selected') {
+    const hits = selectedHits();
+    button.disabled = true;
+    await Promise.all(hits.map(hit => loadDocument(hit.case.id)));
+    const printRoot = document.createElement('section');
+    printRoot.id = 'selected-case-print';
+    printRoot.innerHTML = hits.map((hit, index) => caseCard(hit, index)).join('');
+    document.body.append(printRoot);
+    try {
+      document.body.classList.add('print-selected-cases');
+      window.print();
+    } finally {
+      document.body.classList.remove('print-selected-cases');
+      printRoot.remove();
+      if (button.isConnected) button.disabled = false;
+    }
+  } else if (action === 'retry-laws') {
+    for (const hit of state.result.hits) {
+      state.documentErrors.delete(documentKey(hit.case.id));
+      queueDocument(hit.case.id);
+    }
+    $('.laws-content').innerHTML = lawList();
+  } else if (action === 'law-cases') {
+    const law = citingCases(Number(button.dataset.law), Number(button.dataset.article));
+    if (law) openDrawer(law.title, law.content);
+  } else if (action === 'explain') showExplanation(id);
+  else if (action === 'save-case') openFavoriteChooser(id);
+  else if (action === 'favorite-create-folder') createFolderInChooser();
+  else if (action === 'remove-favorite') {
+    if (removeFavorite(id)) { refreshFavorites(id); toast('已取消收藏'); }
+  } else if (action === 'new-folder') openNewFolderDialog();
+  else if (action === 'select-folder') {
+    state.activeFolder = id; render();
+    [...document.querySelectorAll('[data-action=select-folder]')].find(item => item.dataset.id === id)?.focus({ preventScroll: true });
+  }
+  else if (action === 'close-drawer') closeDrawer();
+  else if (action === 'open-history') restoreHistory(id);
+  else if (action === 'delete-history' || action === 'clear-history') {
+    state.history = action === 'clear-history' ? [] : state.history.filter(item => item.id !== id);
+    persist(); render(); toast('已删除历史记录');
+  } else if (action === 'retry-health') connect();
+  else if (action === 'feedback') {
+    button.disabled = true;
+    try {
+      await api.feedback(state.result.search_id, id, button.dataset.relevant === 'true');
+      toast('反馈已记录');
+    } catch (error) { toast(error.message); }
+    finally { if (button.isConnected) button.disabled = false; }
+  } else if (action === 'copy-citation') {
+    const c = currentCase(id);
+    if (!c) return;
+    const text = [c.source_type === 'demo' ? '【虚构演示案例】' : '', c.title, c.court, c.case_number, c.judge_date].filter(Boolean).join('，');
+    try { await navigator.clipboard.writeText(text); toast('已复制案例引用'); }
+    catch {
+      openDrawer('复制引用', `<label for="copy-area">请选择并复制以下引用</label><textarea id="copy-area" class="copy-area" readonly>${esc(text)}</textarea>`, 'copy', 'modal');
+      $('#copy-area').select();
+    }
+  } else if (action === 'toggle-nav') {
+    const open = $('.workspace').classList.toggle('nav-open');
+    button.setAttribute('aria-expanded', String(open));
+  }
+});
+
+document.addEventListener('keydown', event => {
+  const tab = event.target.closest('[role=tab]');
+  if (tab && ['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) {
+    const tabs = [...tab.closest('[role=tablist]').querySelectorAll('[role=tab]')];
+    const index = tabs.indexOf(tab);
+    const next = event.key === 'Home' ? tabs[0] : event.key === 'End' ? tabs.at(-1) : tabs[(index + (event.key === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length];
+    event.preventDefault();
+    // Manual activation: arrow keys move focus, Enter/Space activates and fetches content.
+    tabs.forEach(item => { item.tabIndex = item === next ? 0 : -1; });
+    next.focus({ preventScroll: true });
+    next.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  }
+  if (event.key === 'Escape') {
+    if (event.target.closest('.document-reader') && !$('#overlay dialog')) {
+      state.readerOpen = false; render(); $('main h1')?.focus({ preventScroll: true });
+    }
+    if (!('popover' in HTMLElement.prototype)) hideFilters();
+    $('.workspace')?.classList.remove('nav-open');
+    $('.mobile-menu')?.setAttribute('aria-expanded', 'false');
+  }
+  if (!event.isComposing && event.key === 'Enter' && (event.ctrlKey || event.metaKey) && event.target.id === 'query') {
+    event.preventDefault();
+    event.target.form.requestSubmit();
+  }
+});
+document.addEventListener('focusout', event => {
+  const list = event.target.closest('[role=tablist]');
+  if (list && !list.contains(event.relatedTarget)) {
+    list.querySelectorAll('[role=tab]').forEach(tab => {
+      tab.tabIndex = tab.getAttribute('aria-selected') === 'true' ? 0 : -1;
+    });
+  }
+});
+window.addEventListener('hashchange', () => {
+  const view = route().view;
+  if (state.resultStatus === 'loading' && view !== 'results') cancelOperation();
+  if (view !== 'search') cancelOptimization();
+  render({ focus: true });
+});
+document.addEventListener('toggle', event => {
+  if (event.target.id === 'search-progress' && event.target.isConnected) state.progressOpen = event.target.open;
+  if (event.target.id === 'result-filter-popover' && event.target.isConnected) {
+    state.filterOpen = event.newState === 'open';
+    $('[data-action=toggle-result-filters]')?.setAttribute('aria-expanded', String(state.filterOpen));
+  }
+}, true);
+document.addEventListener('scroll', event => {
+  if (event.target.matches?.('.reader-scroll')) rememberReaderScroll();
+}, true);
+window.addEventListener('resize', () => { if (state.filterOpen) positionFilter(); });
+matchMedia('(max-width: 900px)').addEventListener('change', () => { if (state.readerOpen) render(); });
+document.addEventListener('click', event => {
+  if (!('popover' in HTMLElement.prototype) && state.filterOpen && !event.target.closest('#result-filter-popover, [data-action=toggle-result-filters]')) hideFilters();
+});
 render();
-if(['#overview','#scenarios','#workflow'].includes(location.hash))requestAnimationFrame(()=>document.getElementById(location.hash.slice(1))?.scrollIntoView());
-})();
+connect();

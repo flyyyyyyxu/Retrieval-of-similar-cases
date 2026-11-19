@@ -24,7 +24,7 @@ def rerank(
     else:
         degraded.append("rerank_skipped")
 
-    ranked = sorted(hits, key=lambda h: h.score, reverse=True)[:top_k]
+    ranked = sorted(hits, key=lambda h: (h.case.source_type != "typical", -h.score))[:top_k]
     for i, h in enumerate(ranked, 1):
         h.rank = i
     return ranked, degraded

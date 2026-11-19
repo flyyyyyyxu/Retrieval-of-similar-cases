@@ -1,0 +1,83 @@
+const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
+const assert = require('node:assert/strict');
+const path = require('node:path');
+const fs = require('node:fs/promises');
+const base = process.env.QINGAN_URL || 'http://127.0.0.1:8027';
+
+(async () => {
+  const browser = await chromium.launch({ executablePath: process.env.CHROME_PATH || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', headless: true });
+  try {
+    const page = await browser.newPage({ viewport: { width: 1440, height: 1050 }, reducedMotion: 'reduce', acceptDownloads: true });
+    const errors = [], external = [];
+    page.on('pageerror', e => errors.push(e.message));
+    page.on('request', r => { if (!r.url().startsWith(base) && !r.url().startsWith('blob:') && !r.url().startsWith('data:')) external.push(r.url()); });
+    await page.goto(`${base}/#/search`);
+    await page.locator('#query').fill('只有银行转账记录没有借条，对方主张赠与，如何认定借贷关系？');
+    await page.getByRole('button', { name: '开始检索', exact: true }).click();
+    await page.locator('.case-row').first().waitFor();
+    await page.waitForFunction(() => document.querySelectorAll('.case-row').length === 4);
+    const rows = page.locator('.case-row');
+    assert.equal(await rows.first().getByRole('button', { name: '收藏案例', exact: true }).count(), 1);
+    assert.equal(await page.locator('.report-badge').innerText(), '0');
+    await page.locator('.generate-report').hover();
+    assert.equal(await page.locator('.report-trigger-tip').isVisible(), true);
+    await rows.nth(0).getByRole('button', { name: '加入检索报告', exact: true }).click();
+    await rows.nth(1).getByRole('button', { name: '加入检索报告', exact: true }).click();
+    assert.equal(await page.locator('.report-badge').innerText(), '2');
+    await rows.nth(0).getByRole('button', { name: '从检索报告移除', exact: true }).click();
+    assert.equal(await page.locator('.report-badge').innerText(), '1');
+    await rows.nth(0).getByRole('button', { name: '加入检索报告', exact: true }).click();
+    await rows.nth(2).locator('[data-select-case]').check();
+    await page.getByRole('button', { name: '将选中案例加入检索报告', exact: true }).click();
+    await page.getByRole('button', { name: '将选中案例加入检索报告', exact: true }).click();
+    assert.equal(await page.locator('.report-badge').innerText(), '3');
+    const selectedTitles = await rows.evaluateAll(nodes => nodes.slice(0, 3).map(n => n.querySelector('.case-title').textContent));
+    await page.getByRole('button', { name: /^生成检索报告/ }).click();
+    await page.locator('.ql-editor').waitFor();
+    await page.waitForFunction(() => document.querySelector('.ql-editor')?.textContent.includes('报告概况'));
+    assert.equal(await page.locator('.report-pyramid>div').count(), 6);
+    assert((await page.locator('.ql-editor').innerText()).includes('本报告纳入3篇案例'));
+    const reportId = (await page.evaluate(() => location.hash)).split('/')[2];
+    let doc = await (await page.request.get(`${base}/api/reports/${reportId}`)).json();
+    assert.equal(doc.case_ids.length, 3);
+    for (const title of selectedTitles) assert((await page.locator('.ql-editor').innerText()).includes(title));
+    const bar = page.getByRole('toolbar', { name: '报告文本格式' });
+    assert.equal(await bar.getAttribute('focusgroup'), 'toolbar wrap');
+    await bar.getByRole('button', { name: '一级标题', exact: true }).focus();
+    await page.keyboard.press('ArrowRight');
+    assert.equal(await bar.getByRole('button', { name: '二级标题', exact: true }).evaluate(n => n === document.activeElement), true);
+    // Set up the insertion point through the editor's documented selection API.
+    await page.evaluate(() => { const q = Quill.find(document.querySelector('#report-editor')); q.focus(); q.setSelection(q.getLength() - 1, 0); });
+    await page.keyboard.press('Enter');
+    await page.keyboard.insertText('人工补充验证：修改后的内容应进入Word和PDF。');
+    await page.getByRole('button', { name: '保存', exact: true }).click();
+    await page.waitForFunction(() => document.querySelector('#report-save-status')?.textContent === '已保存');
+    doc = await (await page.request.get(`${base}/api/reports/${reportId}`)).json();
+    assert(doc.ops.some(op => typeof op.insert === 'string' && op.insert.includes('人工补充验证')));
+    const root = path.join(__dirname, 'report-generated');
+    await fs.mkdir(root, { recursive: true });
+    for (const [button, extension, magic] of [['Word', 'docx', 'PK'], ['PDF', 'pdf', '%PDF']]) {
+      const downloaded = page.waitForEvent('download');
+      await page.getByRole('button', { name: button, exact: true }).click();
+      const file = await downloaded;
+      const filePath = path.join(root, `edited-report.${extension}`);
+      await file.saveAs(filePath);
+      assert.equal((await fs.readFile(filePath)).subarray(0, magic.length).toString(), magic);
+    }
+    await page.locator('.report-page-header').scrollIntoViewIfNeeded();
+    await page.screenshot({ path: path.join(__dirname, 'report-editor-1440.png') });
+    await page.reload();
+    await page.locator('.ql-editor').waitFor();
+    await page.getByText('人工补充验证：修改后的内容应进入Word和PDF。', { exact: false }).waitFor();
+    await page.getByRole('link', { name: '我的报告', exact: true }).first().click();
+    await page.locator('.report-list a').first().waitFor();
+    await page.locator(`.report-list a[href="#/reports/${reportId}"]`).click();
+    await page.locator('.ql-editor').waitFor();
+    await page.setViewportSize({ width: 390, height: 900 });
+    await page.screenshot({ path: path.join(__dirname, 'report-editor-390.png') });
+    assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'mobile report overflow');
+    assert.deepEqual(errors, []);
+    assert.deepEqual(external, [], 'editor must use local assets');
+    console.log('PASS: report basket/count/removal/bulk dedup, generated source content/pyramid, keyboard toolbar, edit/save/reload/list, real Word/PDF downloads, mobile layout and no external editor requests.');
+  } finally { await browser.close(); }
+})().catch(error => { console.error(error); process.exit(1); });

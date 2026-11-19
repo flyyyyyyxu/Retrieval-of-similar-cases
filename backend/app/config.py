@@ -32,6 +32,11 @@ class Settings(BaseSettings):
     llm_effort_explain: Literal["low", "medium", "high", "xhigh", "max"] = "medium"
     llm_fallbacks: bool = True  # 拒答时服务端自动换模型重试；仅 anthropic 直连模式生效
     llm_timeout_s: float = 120
+    llm_max_retries: int = 2
+    # 问题优化独立选择低延迟模型；留空复用主模型。短输出、不重试。
+    llm_model_optimize: str = ""
+    llm_optimize_timeout_s: float = 12
+    llm_optimize_max_tokens: int = 900
 
     # 重排服务：暂无可用服务，留空则沿用召回排序（见 README 待办）
     rerank_url: str = ""
