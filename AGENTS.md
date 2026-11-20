@@ -2,6 +2,12 @@
 
 给 Codex / Claude Code 等 AI 助手读的规则。人也请遵守。项目说明见 README.md。
 
+## UI 设计约定
+
+- 修改前端样式或新增组件前，先阅读根目录 [design.md](design.md)。后续 UI 以该文件为准。
+- `frontend/theme.css` 是统一 token 与共享外观入口；组件 CSS 保留结构/布局，新增外观复用 token，不另造相近色、圆角、阴影或重复 override。
+- 不修改 vendor；报告正文格式与 UI 主题分别处理，保持编辑器和导出一致。
+
 ## 边界（不要打破）
 
 1. **前端只调用 `frontend/api.js`**，不直接连 ES、模型或重排服务。

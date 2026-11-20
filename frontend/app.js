@@ -9,7 +9,7 @@ import { searchPage } from './views/search.js';
 import { resultPage } from './views/results.js';
 import { casePage } from './views/case.js';
 import { collectionPage } from './views/collections.js';
-import { caseCard } from './components/case-card.js';
+import { caseCard, updateExcerptControls } from './components/case-card.js';
 import { lawList, citingCases } from './components/law-list.js';
 import { openReader, activateReader, closeReaderTab, rememberReaderScroll, positionReader, refreshReader, toggleReaderDirectory } from './components/reader.js';
 import { filterFields, positionFilter, hideFilters, readFilters } from './components/filter-panel.js';
@@ -102,6 +102,7 @@ function render({ focus = false } = {}) {
       $('main h1, main h2')?.focus({ preventScroll: true });
     }
     positionReader();
+    updateExcerptControls();
     if (current.view === 'reports' && current.id) mountReportEditor(current.id);
   });
   observeResultRows();
@@ -304,6 +305,7 @@ function refreshCaseRow(id) {
     template.innerHTML = caseCard(hit, index, collection);
     const replacement = template.content.firstElementChild;
     row.replaceWith(replacement);
+    updateExcerptControls(replacement);
     if (replacement.querySelector('.case-fields')) replacement.querySelector('.case-fields').scrollLeft = scrollLeft;
     if (focusId) document.getElementById(focusId)?.focus({ preventScroll: true });
     else if (focused?.matches('[data-select-case]')) replacement.querySelector('[data-select-case]')?.focus({ preventScroll: true });
@@ -531,6 +533,7 @@ document.addEventListener('submit', event => {
   if (event.target.id === 'search-form') {
     event.preventDefault();
     const text = validQuestion(event.target);
+    if (!text) return;
     const filters = readSearchScope(event.target, true);
     if (text && filters) { state.searchFilters = filters; startSearch(text, filters); }
   }
@@ -666,6 +669,7 @@ document.addEventListener('click', async event => {
   } else if (action === 'retry-document') {
     state.documentErrors.delete(documentKey(id));
     loadDocument(id);
+    refreshReader(id);
     if (route().view === 'case') render();
     else refreshCaseRow(id);
   } else if (action === 'result-tab') {
@@ -722,6 +726,7 @@ document.addEventListener('click', async event => {
   } else if (action === 'save-report') saveReport();
   else if (action === 'download-report') saveReport(button.dataset.format);
   else if (action === 'retry-reports') retryReports(render);
+  else if (action === 'retry-report-editor') render();
   else if (action === 'export-selected') {
     const data = selectedHits().map(hit => ({ ...hit.case }));
     const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
@@ -840,7 +845,7 @@ document.addEventListener('toggle', event => {
 document.addEventListener('scroll', event => {
   if (event.target.matches?.('.reader-scroll')) rememberReaderScroll();
 }, true);
-window.addEventListener('resize', () => { if (state.filterOpen) positionFilter(); });
+window.addEventListener('resize', () => { if (state.filterOpen) positionFilter(); updateExcerptControls(); });
 matchMedia('(max-width: 900px)').addEventListener('change', () => { if (state.readerOpen) render(); });
 document.addEventListener('click', event => {
   if (!('popover' in HTMLElement.prototype) && state.filterOpen && !event.target.closest('#result-filter-popover, [data-action=toggle-result-filters]')) hideFilters();

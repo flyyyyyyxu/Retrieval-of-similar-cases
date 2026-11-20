@@ -20,6 +20,15 @@ export function highlightText(text) {
   return text.split(pattern).map((part, i) => i % 2 ? `<mark>${esc(part)}</mark>` : esc(part)).join('');
 }
 
+// Measure the rendered excerpt: character counts cannot predict Chinese wrapping.
+export function updateExcerptControls(root = document) {
+  for (const panel of root.querySelectorAll('[role=tabpanel]:not([hidden])')) {
+    const content = panel.querySelector('.case-field-content');
+    const toggle = panel.querySelector('[data-action=expand-case]');
+    if (content && toggle) toggle.hidden = !content.classList.contains('is-expanded') && content.scrollHeight <= content.clientHeight + 1;
+  }
+}
+
 export function contentSections(hit, doc) {
   if (doc?.content_sections != null) {
     return doc.content_sections.map(section => {
@@ -66,7 +75,7 @@ export function caseCard(hit, index, collection = false) {
       ${c.doc_type ? `<span class="document-type-pill">${esc(c.doc_type)}</span>` : ''}
     </div><div class="case-meta">${metadata.map(value => `<span>${esc(value)}</span>`).join('')}</div>
       <div class="case-fields" role="tablist" aria-label="${esc(c.title)}文书内容">${tabs.map(tab => `<button type="button" role="tab" id="case-tab-${token}-${tab.key}" data-action="case-field" data-id="${esc(c.id)}" data-field="${tab.key}" aria-selected="${active === tab.key}" tabindex="${active === tab.key ? '0' : '-1'}">${tab.label}</button>`).join('')}</div>
-      <div class="case-field-panels">${tabs.length ? tabs.map(panel).join('') : `<div class="case-field-content"><p class="field-empty">${error ? '暂时无法读取文书。' : doc ? '暂无摘要内容。' : '正在读取文书内容…'}</p><a class="text-button view-original" href="${esc(caseHash(c.id))}" data-action="open-case" data-id="${esc(c.id)}" ${origin}>查看原文 ${icon('arrow')}</a></div>`}</div>
+      <div class="case-field-panels">${tabs.length ? tabs.map(panel).join('') : `<div class="case-field-content"><p class="field-empty">${error ? '暂时无法读取文书。' : doc ? '暂无摘要内容。' : '正在读取文书内容…'}</p>${error ? `<button type="button" class="text-button" data-action="retry-document" data-id="${esc(c.id)}">重试</button>` : ''}<a class="text-button view-original" href="${esc(caseHash(c.id))}" data-action="open-case" data-id="${esc(c.id)}" ${origin}>查看原文 ${icon('arrow')}</a></div>`}</div>
     </div>
   </article>`;
 }

@@ -40,7 +40,7 @@ export function preserveReportEditor() {
 }
 
 function toolbar() {
-  const b = (format, label, text, value = null) => `<button type="button" class="ql-${format}" ${value !== null ? `value="${value}"` : ''} title="${label}" aria-label="${label}" ${['undo', 'redo', 'clean'].includes(format) ? '' : 'aria-pressed="false"'}>${text}</button>`;
+  const b = (format, label, text, value = null) => `<button type="button" disabled class="ql-${format}" ${value !== null ? `value="${value}"` : ''} title="${label}" aria-label="${label}" ${['undo', 'redo', 'clean'].includes(format) ? '' : 'aria-pressed="false"'}>${text}</button>`;
   const sep = '<span class="report-tool-separator" role="separator" aria-orientation="vertical"></span>';
   return `<div id="report-toolbar" role="toolbar" focusgroup="toolbar wrap" aria-label="报告文本格式" aria-controls="report-editor">
     <span class="ql-formats" role="group" aria-label="标题">${b('header', '一级标题', 'H1', 1)}${b('header', '二级标题', 'H2', 2)}${b('header', '三级标题', 'H3', 3)}</span>${sep}
@@ -52,11 +52,13 @@ function toolbar() {
 }
 
 export function reportsPage(id) {
-  if (!id) return `<div class="collection-page reports-page"><div class="collection-heading"><div><h1 tabindex="-1">我的报告</h1><p>查看并继续编辑已保存的检索报告。</p></div><a class="btn small" href="#/results">返回检索</a></div>${listError ? empty('报告暂时无法读取', listError, '<button class="btn" data-action="retry-reports">重试</button>') : reportList === null ? loading('正在读取报告', '') : reportList.length ? `<div class="report-list">${reportList.map(report => `<a href="#/reports/${encodeURIComponent(report.id)}"><span class="report-list-icon">${icon('report')}</span><div><h2>${esc(report.title)}</h2><p>${report.case_ids.length}篇案例 · ${esc(new Date(report.updated_at).toLocaleString('zh-CN'))}</p></div><span>继续编辑 ${icon('arrow')}</span></a>`).join('')}</div>` : empty('还没有检索报告', '在相关案例中加入案例，点击工具栏的报告图标生成。', '<a class="btn primary" href="#/search">开始检索</a>')}</div>`;
+  const returnLink = state.result ? '#/results' : '#/search';
+  const returnLabel = state.result ? '返回检索' : '新建检索';
+  if (!id) return `<div class="collection-page reports-page"><div class="collection-heading"><div><h1 tabindex="-1">我的报告</h1><p>查看并继续编辑已保存的检索报告。</p></div><a class="btn small" href="${returnLink}">${returnLabel}</a></div>${listError ? empty('报告暂时无法读取', listError, '<button class="btn" data-action="retry-reports">重试</button>') : reportList === null ? loading('正在读取报告', '') : reportList.length ? `<div class="report-list">${reportList.map(report => `<a href="#/reports/${encodeURIComponent(report.id)}"><span class="report-list-icon">${icon('report')}</span><div><h2>${esc(report.title)}</h2><p>${report.case_ids.length}篇案例 · ${esc(new Date(report.updated_at).toLocaleString('zh-CN'))}</p></div><span>继续编辑 ${icon('arrow')}</span></a>`).join('')}</div>` : empty('还没有检索报告', '在相关案例中加入案例，点击工具栏的报告图标生成。', '<a class="btn primary" href="#/search">开始检索</a>')}</div>`;
   const draft = drafts.get(id);
   if (!draft) return loading('正在读取报告', '');
   if (draft.error) return empty('报告暂时无法读取', draft.error, '<button class="btn" data-action="retry-reports">重试</button>');
-  return `<section class="report-page" data-report-id="${esc(id)}"><header class="report-page-header"><div><nav class="report-breadcrumb" aria-label="报告导航"><a href="#/results">${icon('back')} 返回检索</a><span>/</span><a href="#/reports">我的报告</a><span>/</span><span>在线编辑</span></nav><h1 tabindex="-1">${esc(draft.document.title)}</h1></div><div class="report-page-actions"><span id="report-save-status" role="status">${draft.dirty ? '有未保存修改' : '已保存'}</span><button type="button" class="btn small primary" data-action="save-report">保存</button><button type="button" class="btn small" data-action="download-report" data-format="docx">${icon('download')} Word</button><button type="button" class="btn small" data-action="download-report" data-format="pdf">${icon('download')} PDF</button></div></header><p id="report-message" class="form-error" role="alert" hidden></p>
+  return `<section class="report-page" data-report-id="${esc(id)}"><header class="report-page-header"><div><nav class="report-breadcrumb" aria-label="报告导航"><a href="${returnLink}">${icon('back')} ${returnLabel}</a><span>/</span><a href="#/reports">我的报告</a><span>/</span><span>在线编辑</span></nav><h1 tabindex="-1">${esc(draft.document.title)}</h1></div><div class="report-page-actions"><span id="report-save-status" role="status">${draft.dirty ? '有未保存修改' : '已保存'}</span><button type="button" class="btn small primary" data-action="save-report">保存</button><button type="button" class="btn small" data-action="download-report" data-format="docx">${icon('download')} Word</button><button type="button" class="btn small" data-action="download-report" data-format="pdf">${icon('download')} PDF</button></div></header><p id="report-message" class="form-error" role="alert" hidden></p>
     <div class="report-editing-surface">${toolbar()}<div class="report-paper"><div id="report-editor" aria-label="检索报告正文"></div></div></div></section>`;
 }
 
@@ -138,10 +140,17 @@ export async function mountReportEditor(id) {
       draft.dirty = true; draft.version++; setStatus('有未保存修改'); syncToolbar();
     });
     editor.on('selection-change', syncToolbar);
+    $('#report-toolbar').querySelectorAll('button').forEach(button => { button.disabled = false; });
     toolbarNavigation($('#report-toolbar')); syncToolbar();
   } catch (error) {
     const message = $('#report-message');
-    if (message) { message.hidden = false; message.textContent = error.message; }
+    if (message) {
+      message.hidden = false; message.textContent = error.message;
+      const retry = document.createElement('button');
+      retry.type = 'button'; retry.className = 'text-button';
+      retry.dataset.action = 'retry-report-editor'; retry.textContent = '重试编辑器';
+      message.append(' ', retry);
+    }
   }
 }
 

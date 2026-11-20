@@ -3,7 +3,7 @@ import { esc, icon, empty, loading, sourceLabel, safeSource, caseHash } from '..
 
 export function casePage(id, target) {
   const key = documentKey(id), c = state.documents.get(key), error = state.documentErrors.get(key);
-  const back = `<a class="text-button" href="${state.returnTo === 'saved' ? '#/saved' : '#/results'}">${icon('back')} ${state.returnTo === 'saved' ? '返回我的收藏' : '返回检索结果'}</a>`;
+  const back = `<a class="text-button" href="${state.returnTo === 'saved' ? '#/saved' : state.result ? '#/results' : '#/search'}">${icon('back')} ${state.returnTo === 'saved' ? '返回我的收藏' : state.result ? '返回检索结果' : '新建检索'}</a>`;
   if (!c) return `<div class="document-page"><div class="document-toolbar">${back}</div>${error ? empty('暂时无法打开文书', error, `<button type="button" class="btn" data-action="retry-document" data-id="${esc(id)}">重试</button>`) : loading('正在读取文书', '加载原文与段落定位。')}</div>`;
   const saved = isSaved(id), source = safeSource(c.source_url);
   return `<div class="document-page"><div class="document-toolbar">${back}<div><button type="button" class="btn small ${saved ? 'saved-button' : ''}" data-action="save-case" data-id="${esc(id)}" aria-pressed="${saved}">${icon('bookmark')} ${saved ? '已收藏' : '收藏案例'}</button><button type="button" class="btn small" data-action="copy-citation" data-id="${esc(id)}">复制引用</button></div></div>

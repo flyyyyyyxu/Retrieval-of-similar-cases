@@ -1,4 +1,4 @@
-.generate-report{position:relative;flex:none;color:#326a91!important;overflow:visible;margin-inline-end:4px}
+.generate-report{position:relative;flex:none;overflow:visible;margin-inline-end:4px}
 .report-badge{position:absolute;inset-block-start:-4px;inset-inline-end:-6px;min-inline-size:17px;block-size:17px;padding:0 4px;border-radius:20px;background:#1c795c;color:#fff;font:10px/17px var(--sans);text-align:center;border:1px solid #fff}
 .report-trigger-tip{position:absolute;inset-block-start:calc(100% + 8px);inset-inline-start:50%;transform:translateX(-50%);white-space:nowrap;background:#263b34;color:#fff;border:1px solid transparent;border-radius:4px;padding:5px 9px;font:12px/1.7 var(--sans);z-index:30;pointer-events:none;visibility:hidden}
 .generate-report:hover .report-trigger-tip,.generate-report:focus-visible .report-trigger-tip{visibility:visible}.add-to-report[aria-pressed=true]{background:#e5eee7;color:#1e6e4e;outline:1px solid #789880;outline-offset:-2px}

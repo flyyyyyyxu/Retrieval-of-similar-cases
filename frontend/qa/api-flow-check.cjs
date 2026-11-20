@@ -108,7 +108,7 @@ const output = process.env.QINGAN_SCREENSHOTS || __dirname;
     assert.equal(await page.locator('#query').inputValue(), rewritten);
     await page.locator('#query').fill('完全不包含当前词表的查询内容');
     await page.locator('#search-form button[type=submit]').click();
-    await page.getByRole('heading', { name: '没有找到符合条件的案例' }).waitFor();
+    await page.getByRole('heading', { name: '未找到相关案例' }).waitFor();
     await page.locator('[data-action=edit-query]').first().click();
     await page.locator('#query').fill(original);
     await page.route('**/api/search', route => route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ detail: '测试：服务暂不可用' }) }), { times: 1 });

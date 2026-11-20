@@ -120,6 +120,7 @@ docs/              数据审计、openapi.json
 - **不进 Git**：`.env`、`var/`、真实文书、服务器地址、账号密码。示例数据只放虚构或脱敏的内容。
 - **可信的底线**：案号、法院、链接不由模型生成；AI 归纳必须附原文引用；排序分不显示成可信度。
 - 用 AI 写代码前，先让它读 `AGENTS.md`。
+- UI 设计以 [design.md](design.md) 为准，共享外观维护在 `frontend/theme.css`；本轮前端审查与较大问题见 [UI 待办](docs/ui-review-2026-11-19.md)。
 
 ## ✅ 待办
 

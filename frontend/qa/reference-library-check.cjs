@@ -49,7 +49,7 @@ const base = process.env.QINGAN_URL || 'http://127.0.0.1:8027';
     await page.locator('[data-select-case=loan-2]').check();
     assert(await page.locator('#select-all-cases').evaluate(element => element.indeterminate));
     const downloadWait = page.waitForEvent('download');
-    await page.getByRole('button', { name: '导出选中案例' }).click();
+    await page.getByRole('button', { name: '导出案例信息（JSON）' }).click();
     const download = await downloadWait;
     const exported = JSON.parse(await fs.readFile(await download.path(), 'utf8'));
     assert.equal(exported.length, 2);
