@@ -2,6 +2,7 @@ import { state, documentKey } from '../store.js';
 import { $, esc, icon, safeSource } from '../ui.js';
 
 let outlineObserver;
+const defaultDirectoryCollapsed = () => matchMedia('(max-width: 1050px)').matches;
 
 export function rememberReaderScroll() {
   const scroll = $('.reader-scroll');
@@ -38,7 +39,7 @@ export function closeReaderTab(id) {
 
 export function toggleReaderDirectory() {
   const tab = state.readerTabs.find(item => item.id === state.activeReaderId);
-  if (tab) tab.directoryCollapsed = !(tab.directoryCollapsed ?? matchMedia('(max-width: 1320px)').matches);
+  if (tab) tab.directoryCollapsed = !(tab.directoryCollapsed ?? defaultDirectoryCollapsed());
 }
 
 function groupSections(doc) {
@@ -58,7 +59,7 @@ function readerContent(tab) {
   if (error) return `<div class="reader-message"><p>暂时无法读取文书。</p><button type="button" class="btn small" data-action="retry-document" data-id="${esc(tab.id)}">重试</button></div>`;
   if (!doc) return '<div class="reader-message" role="status"><span class="mini-spinner" aria-hidden="true"></span>正在读取原文…</div>';
   const sections = groupSections(doc), source = safeSource(doc.source_url);
-  const collapsed = tab.directoryCollapsed ?? matchMedia('(max-width: 1320px)').matches;
+  const collapsed = tab.directoryCollapsed ?? defaultDirectoryCollapsed();
   const metadata = [doc.court, doc.case_number, doc.judge_date && `${doc.judge_date.replaceAll('-', '.')} 裁判`].filter(Boolean);
   const causes = [...(doc.cause_path?.length ? doc.cause_path : [])];
   if (doc.cause && !causes.includes(doc.cause)) causes.push(doc.cause);

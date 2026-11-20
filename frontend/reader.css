@@ -1,6 +1,6 @@
 .document-reader{container: reader / inline-size}
-.reader-panels{display:grid;min-block-size:0;min-inline-size:0}
-.reader-tab-panel{grid-area:1/1;display:grid;min-block-size:0;min-inline-size:0}
+.reader-panels{display:grid;grid-template-rows:minmax(0,1fr);min-block-size:0;min-inline-size:0}
+.reader-tab-panel{grid-area:1/1;display:grid;grid-template-rows:minmax(0,1fr);min-block-size:0;min-inline-size:0}
 .reader-document-layout{position:relative;display:grid;grid-template-columns:132px minmax(0,1fr);min-block-size:0;min-inline-size:0;background:#fff}
 .reader-document-layout.directory-collapsed{grid-template-columns:38px minmax(0,1fr)}
 .reader-directory{display:flex;flex-direction:column;min-block-size:0;min-inline-size:0;border-inline-end:1px solid #e0e6e9;background:#fff}
@@ -26,7 +26,7 @@
 /* Citation targets are static text. Focus supports assistive reading without a paragraph-wide frame. */
 .reader-paragraph:focus,.reader-document-section:focus{outline:none}.reader-target p{background:none;box-shadow:none}
 .reader-warning{font-size:.75rem;color:#98764c;background:#f9f5eb;padding:12px;line-height:1.9;margin-block:12px}.reader-message{padding:70px 25px;display:flex;align-items:center;justify-content:center;gap:12px;font-size:.8125rem;color:#788a71}
-@container reader (max-width:520px){
+@container reader (max-width:420px){
   .reader-document-layout:not(.directory-collapsed){grid-template-columns:38px minmax(0,1fr)}
   .reader-document-layout:not(.directory-collapsed)>.reader-directory{position:absolute;inset-block:0;inset-inline-start:0;inline-size:180px;z-index:3;box-shadow:8px 0 24px #293e491c}
   .reader-document-layout:not(.directory-collapsed)>.reader-scroll{grid-column:2}

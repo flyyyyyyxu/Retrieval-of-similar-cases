@@ -110,6 +110,10 @@ const screenshot = name => path.join(__dirname, name);
       // The breakpoint rerenders the reader and restores scroll on the next frame.
       await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
       assert.equal(await page.locator('.document-reader').count(), 1);
+      if (width > 1050) assert(await page.locator('.reader-toc').isVisible(), `directory missing at ${width}`);
+      const preview = await page.locator('.reader-scroll').boundingBox();
+      assert(preview.height > 300 && preview.y + preview.height <= 1002, `preview clipped at ${width}`);
+      assert.equal(await page.locator('.reader-paper').evaluate(el => getComputedStyle(el).borderRadius), '0px');
       assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), `reader overflow ${width}`);
       await page.screenshot({ path: screenshot(`workspace-reader-${width}.png`) });
     }
