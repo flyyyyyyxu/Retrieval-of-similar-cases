@@ -11,10 +11,14 @@ from app.sources.base import MatchMode
 
 def passes_filters(case: CaseDetail, f: Filters) -> bool:
     year = int(case.judge_date[:4]) if case.judge_date else None
-    if f.region and case.region != f.region:
+    regions = f.regions or ([f.region] if f.region else [])
+    levels = f.court_levels or ([f.court_level] if f.court_level else [])
+    if regions and case.region not in regions:
         return False
-    if f.court_level and case.court_level != f.court_level:
+    if levels and case.court_level not in levels:
         return False
+    if f.years:
+        return year in f.years
     if f.year_from and (year is None or year < f.year_from):
         return False
     return not (f.year_to and (year is None or year > f.year_to))

@@ -356,3 +356,30 @@ dialog.drawer { box-shadow: var(--shadow-dialog); }
   [aria-selected=true], .bookmark.is-saved, .add-to-report[aria-pressed=true] { outline: 1px solid Highlight; outline-offset: -2px; }
 }
 @media print { .result-library, .report-paper { border: 0; box-shadow: none; } }
+
+/* Search scope: native checkbox groups, explicit submission, compact summaries. */
+.search-scope { position: relative; }
+.scope-multiselect { position: relative; min-inline-size: 0; }
+.scope-multiselect > summary { display: flex; align-items: center; gap: 12px; list-style: none; cursor: pointer; padding: 8px 10px; border: 1px solid var(--control-line); border-radius: var(--radius-control); background: var(--warm); color: var(--secondary); font-size: var(--text-meta); min-block-size: 38px; }
+.scope-multiselect > summary::-webkit-details-marker { display: none; }
+.scope-multiselect > summary > span { max-inline-size: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.scope-multiselect > summary .icon { inline-size: 14px; block-size: 14px; }
+.scope-multiselect[open] > summary { color: var(--ink); border-color: var(--secondary); }
+.scope-options { position: absolute; inset-block-start: calc(100% + 8px); inset-inline-start: 0; z-index: 40; inline-size: 280px; max-inline-size: calc(100vw - 48px); padding: 16px; background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius-panel); box-shadow: var(--shadow-popover); }
+.scope-options fieldset { border: 0; padding: 0; margin: 0; min-inline-size: 0; }
+.scope-options legend { font-size: var(--text-ui); font-weight: 500; margin-block-end: 8px; }
+.scope-option-list { max-block-size: 230px; overflow-y: auto; overscroll-behavior: contain; margin-block-start: 8px; }
+.scope-option-list > div { display: flex; align-items: center; gap: 10px; min-block-size: 36px; }
+.scope-option-list input { accent-color: var(--primary); flex: none; }
+.scope-option-list label { flex: 1; cursor: pointer; padding-block: 8px; font-size: var(--text-meta); }
+.scope-range { display: grid; grid-template-columns: auto minmax(0,1fr); align-items: center; gap: 8px; border-block-start: 1px solid var(--line); margin-block-start: 12px; padding-block-start: 12px; font-size: var(--text-caption); }
+.scope-range > span { grid-column: 1/-1; color: var(--muted); }
+.scope-range select { inline-size: 100%; }
+.empty-result-actions { display: flex; justify-content: center; align-items: center; gap: 16px; flex-wrap: wrap; margin-block-start: 20px; }
+@media(max-width:760px) {
+  .scope-multiselect { position: static; flex: 1; }
+  .scope-multiselect > summary { min-block-size: 44px; justify-content: space-between; }
+  .scope-multiselect > summary > span { max-inline-size: 120px; }
+  .scope-options { inset-inline: 0; inline-size: 100%; max-inline-size: 100%; }
+  .scope-option-list > div { min-block-size: 48px; }
+}

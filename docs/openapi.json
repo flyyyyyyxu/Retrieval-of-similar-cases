@@ -1252,6 +1252,32 @@
               }
             ],
             "title": "Court Level"
+          },
+          "regions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 60,
+            "title": "Regions"
+          },
+          "court_levels": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 10,
+            "title": "Court Levels"
+          },
+          "years": {
+            "items": {
+              "type": "integer",
+              "maximum": 2100.0,
+              "minimum": 1900.0
+            },
+            "type": "array",
+            "maxItems": 201,
+            "title": "Years"
           }
         },
         "type": "object",

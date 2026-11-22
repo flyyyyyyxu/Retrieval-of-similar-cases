@@ -42,7 +42,7 @@ export const api = (() => {
     /** 综合答复预留，SearchAnswer: conclusion + judicial_view，各自附引用 */
     answer: (searchId, options) => request('/search/answer', { ...options, method: 'POST', body: { search_id: searchId } }),
 
-    /** 内部 ParsedQuery + 手选地域/年份/层级 Filters → { search_id, data_mode, hits, degraded, took_ms } */
+    /** 内部 ParsedQuery + 手选地域/年份/层级 Filters（regions/years/court_levels 数组，同维度OR、跨维度AND；兼容旧单值/年份范围） → { search_id, data_mode, hits, degraded, took_ms } */
     search: (query, options) => request('/search', { ...options, method: 'POST', body: { query, size: 10 } }),
 
     /** 十二类过滤条件：ResultFilters / ResultFilterOptions；当前 scope=returned_results */

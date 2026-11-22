@@ -90,11 +90,21 @@ class EsSource:
 
     def _filters(self, f: Filters) -> list[dict]:
         out: list[dict] = []
-        if f.region and FIELD_MAP["region"]:
+        if f.regions and FIELD_MAP["region"]:
+            out.append({"terms": {FIELD_MAP["region"]: f.regions}})
+        elif f.region and FIELD_MAP["region"]:
             out.append({"term": {FIELD_MAP["region"]: f.region}})
-        if f.court_level and FIELD_MAP["court_level"]:
+        if f.court_levels and FIELD_MAP["court_level"]:
+            out.append({"terms": {FIELD_MAP["court_level"]: f.court_levels}})
+        elif f.court_level and FIELD_MAP["court_level"]:
             out.append({"term": {FIELD_MAP["court_level"]: f.court_level}})
-        if (f.year_from or f.year_to) and FIELD_MAP["judge_date"]:
+        if f.years and FIELD_MAP["judge_date"]:
+            out.append({"bool": {"should": [
+                {"range": {FIELD_MAP["judge_date"]: {
+                    "gte": f"{year}-01-01", "lte": f"{year}-12-31"}}}
+                for year in sorted(set(f.years))
+            ], "minimum_should_match": 1}})
+        elif (f.year_from or f.year_to) and FIELD_MAP["judge_date"]:
             rng = {}
             if f.year_from:
                 rng["gte"] = f"{f.year_from}-01-01"

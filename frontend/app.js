@@ -151,7 +151,7 @@ function setStage(index, status, detail) {
   announce(detail);
 }
 
-async function startSearch(text, scope = state.searchFilters) {
+async function startSearch(text, scope = state.searchFilters, clearScope = false) {
   if (state.resultStatus === 'loading') return;
   cancelOperation();
   cancelOptimization();
@@ -195,11 +195,14 @@ async function startSearch(text, scope = state.searchFilters) {
     const query = parsed.query;
     // User-selected values take precedence over inferred filters; unset controls
     // still allow conditions explicitly written in the natural-language question.
-    query.filters = { ...query.filters, ...Object.fromEntries(Object.entries(inputFilters).filter(([, value]) => value != null && value !== '')) };
+    query.filters = { ...query.filters, ...Object.fromEntries(Object.entries(inputFilters).filter(([, value]) => value != null && value !== '' && (!Array.isArray(value) || value.length))) };
     if (inputFilters.year_from != null || inputFilters.year_to != null) {
       query.filters.year_from = inputFilters.year_from ?? null;
       query.filters.year_to = inputFilters.year_to ?? null;
     }
+    if (inputFilters.years?.length) { query.filters.year_from = null; query.filters.year_to = null; }
+    if (inputFilters.year_from != null || inputFilters.year_to != null) query.filters.years = [];
+    if (clearScope) query.filters = blankScope();
     state.resultQuery = query;
     state.parsed = query;
     state.parseDegraded = parsed.degraded;
@@ -569,7 +572,12 @@ document.addEventListener('input', event => {
 });
 
 document.addEventListener('change', event => {
-  if (event.target.matches('[data-search-scope]')) state.searchFilters = readSearchScope(event.target.form);
+  if (event.target.matches('[data-search-scope]')) {
+    const form = event.target.form;
+    if (event.target.name === 'years') { $('#scope-year-from', form).value = ''; $('#scope-year-to', form).value = ''; }
+    if (['year_from', 'year_to'].includes(event.target.name)) form.querySelectorAll('[name=years]').forEach(el => { el.checked = false; });
+    state.searchFilters = readSearchScope(form);
+  }
   if (event.target.matches('[data-select-case]')) {
     const id = event.target.dataset.selectCase;
     event.target.checked ? state.selectedCases.add(id) : state.selectedCases.delete(id);
@@ -635,6 +643,13 @@ document.addEventListener('click', async event => {
   } else if (action === 'cancel') {
     cancelOperation();
     go('#/search');
+  } else if (action === 'clear-scope-group') {
+    const form = button.closest('form');
+    form.querySelectorAll(`input[name="${button.dataset.group}"]`).forEach(el => { el.checked = false; });
+    if (button.dataset.group === 'years') { $('#scope-year-from', form).value = ''; $('#scope-year-to', form).value = ''; }
+    state.searchFilters = readSearchScope(form);
+  } else if (action === 'search-without-scope') {
+    state.searchFilters = blankScope(); startSearch(state.resultQuery.raw_text, blankScope(), true);
   } else if (action === 'retry-search') startSearch(state.resultQuery.raw_text, state.resultInputFilters);
   else if (action === 'open-case') {
     if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
@@ -852,3 +867,13 @@ document.addEventListener('click', event => {
 });
 render();
 connect();
+
+// Native details/checkboxes preserve standard keyboard behavior without a custom listbox.
+document.addEventListener('click', event => {
+  document.querySelectorAll('.scope-multiselect[open]').forEach(panel => { if (!panel.contains(event.target)) panel.open = false; });
+});
+document.addEventListener('keydown', event => {
+  if (event.key !== 'Escape') return;
+  const panel = event.target.closest('.scope-multiselect[open]');
+  if (panel) { panel.open = false; panel.querySelector('summary').focus(); }
+});

@@ -4,6 +4,7 @@ import { caseCard } from './case-card.js';
 import { lawList } from './law-list.js';
 import { filterPopover } from './filter-panel.js';
 import { visualization } from './visualization.js';
+import { filterSummary } from './filters.js';
 
 export function resultLibrary() {
   const hits = sortedHits(), casesActive = state.resultTab === 'cases';
@@ -11,7 +12,7 @@ export function resultLibrary() {
   const selected = state.selectedCases.size;
   const noResults = state.result?.hits.length
     ? empty('没有找到符合条件的案例', '', '<button type="button" class="text-button" data-action="clear-result-filters">重置筛选</button>')
-    : empty('未找到相关案例', '可调整问题或检索范围后重试。', '<button type="button" class="text-button" data-action="edit-query">调整检索范围</button>');
+    : empty('未找到相关案例', `当前检索范围：${filterSummary(state.resultQuery?.filters)}。${state.result?.data_mode === 'mock' ? '当前样例库不一定覆盖所选范围。' : '可调整问题或筛选条件后重试。'}`, '<div class="empty-result-actions"><button type="button" class="btn small" data-action="search-without-scope">清空范围并重新检索</button><button type="button" class="text-button" data-action="edit-query">调整检索范围</button></div>');
   return `<section class="result-library" aria-label="检索参考资料"><div class="library-tabbar"><div class="library-tabs" role="tablist" aria-label="参考资料类型">
     <button type="button" role="tab" id="results-tab-cases" data-action="result-tab" data-tab="cases" aria-selected="${casesActive}" tabindex="${casesActive ? '0' : '-1'}">相关案例</button>
     <button type="button" role="tab" id="results-tab-laws" data-action="result-tab" data-tab="laws" aria-selected="${!casesActive}" tabindex="${casesActive ? '-1' : '0'}">引用法规</button>

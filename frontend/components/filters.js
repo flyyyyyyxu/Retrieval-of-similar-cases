@@ -8,5 +8,5 @@ export function filtersForm(filters = {}) {
   </div></fieldset>`;
 }
 export function filterSummary(filters = {}) {
-  return [filters.region, filters.year_from && `${filters.year_from}年起`, filters.year_to && `至${filters.year_to}年`, filters.court_level].filter(Boolean).join(' · ') || '未限定地域、年份或法院层级';
+  return [(filters.regions?.length ? filters.regions.join('、') : filters.region), filters.years?.length && filters.years.join('、') + '年', filters.year_from && `${filters.year_from}年起`, filters.year_to && `至${filters.year_to}年`, (filters.court_levels?.length ? filters.court_levels.join('、') : filters.court_level)].filter(Boolean).join(' · ') || '未限定地域、年份或法院层级';
 }

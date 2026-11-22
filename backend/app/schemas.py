@@ -4,7 +4,7 @@
 """
 
 from datetime import date
-from typing import Literal
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
@@ -32,6 +32,9 @@ class Filters(BaseModel):
     year_from: int | None = Field(default=None, ge=1900, le=2100)
     year_to: int | None = Field(default=None, ge=1900, le=2100)
     court_level: str | None = None
+    regions: list[str] = Field(default_factory=list, max_length=60)
+    court_levels: list[str] = Field(default_factory=list, max_length=10)
+    years: list[Annotated[int, Field(ge=1900, le=2100)]] = Field(default_factory=list, max_length=201)
 
     @model_validator(mode="after")
     def ordered_years(self):
