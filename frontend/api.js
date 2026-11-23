@@ -39,7 +39,7 @@ export const api = (() => {
     /** 独立的可选问题优化；只在用户点击按钮时调用 */
     optimize: (text, options) => request('/query/optimize', { ...options, method: 'POST', body: { text } }),
 
-    /** 命中文书的预生成分析归纳，SearchAnswer v2: conclusion（总结）+ judicial_view（裁判观点）+ case_comparison（比较段落数组），各自附引用 */
+    /** 命中文书的预生成分析归纳，SearchAnswer v3: conclusion（总结）、judicial_points（带标题的分点观点）、comparison_table（cases + rows/cells 多维度比较）；保留 judicial_view/case_comparison 兼容字段，各单元格附原文引用 */
     answer: (searchId, options) => request('/search/answer', { ...options, method: 'POST', body: { search_id: searchId } }),
 
     /** 内部 ParsedQuery + 手选地域/年份/层级 Filters（regions/years/court_levels 数组，同维度OR、跨维度AND；兼容旧单值/年份范围） → { search_id, data_mode, hits, degraded, took_ms } */

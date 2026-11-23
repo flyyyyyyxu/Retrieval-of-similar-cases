@@ -72,7 +72,7 @@ def test_answer_is_explicitly_pending_not_fabricated(client):
     assert response.status_code == 200
     assert response.json() == {
         "search_id": result["search_id"], "status": "pending",
-        "conclusion": None, "judicial_view": None, "case_comparison": [], "version": 2,
+        "conclusion": None, "judicial_view": None, "case_comparison": [], "judicial_points": [], "comparison_table": None, "version": 3,
     }
     assert client.post("/api/search/answer", json={"search_id": "missing"}).status_code == 404
 

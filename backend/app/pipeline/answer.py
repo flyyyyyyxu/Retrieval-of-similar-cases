@@ -3,7 +3,18 @@
 from collections import defaultdict
 
 from app.pipeline.cite import verify_research_point
-from app.schemas import CaseDetail, Hit, ParsedQuery, Point, ResearchPoint, SearchAnswer
+from app.schemas import (
+    CaseDetail,
+    CaseSummary,
+    ComparisonRow,
+    ComparisonTable,
+    Hit,
+    JudicialPoint,
+    ParsedQuery,
+    Point,
+    ResearchPoint,
+    SearchAnswer,
+)
 
 
 def _references(points: list[ResearchPoint]):
@@ -18,6 +29,7 @@ def build_answer(
     search_id: str, query: ParsedQuery, hits: list[Hit], cases: list[CaseDetail] | None = None,
 ) -> SearchAnswer:
     allowed = {h.case.id for h in hits}
+    search_order = {h.case.id: (h.score, h.rank or i) for i, h in enumerate(hits, 1)}
     keywords = [k for k in query.keywords if k not in {"借款", "合同", "银行", "金融借款"}]
     keywords = keywords or query.keywords
     groups = defaultdict(list)
@@ -36,18 +48,11 @@ def build_answer(
         return SearchAnswer(search_id=search_id, status="pending")
     # 只比较同一争点；不把执行裁定、担保责任等不相关结果混入计息比较。
     topic = max(groups, key=lambda key: max(row[0] for row in groups[key]))
-    ranked = sorted(groups[topic], key=lambda row: -row[0])
-    selected = [ranked[0]]
-    seen_outcomes = {ranked[0][2].outcome}
-    seen_cases = {ranked[0][1].id}
-    # 在已命中的相关文书中优先保留不同处理结果，避免只展示支持一方的案例。
-    for row in ranked[1:]:
-        if row[1].id not in seen_cases and row[2].outcome not in seen_outcomes:
-            selected.append(row)
-            seen_outcomes.add(row[2].outcome)
-            seen_cases.add(row[1].id)
-        if len(selected) == 3:
-            break
+    ranked = sorted(groups[topic], key=lambda row: (
+        -row[0], -search_order[row[1].id][0], search_order[row[1].id][1],
+    ))
+    selected, seen_cases = [], set()
+    # 先按当前争点相关性，再按检索分与顺序选取；不为凑不同结果拉入低相关案例。
     for row in ranked:
         if len(selected) == 3:
             break
@@ -66,6 +71,29 @@ def build_answer(
                          for _, case, point in selected),
         origin="ai", citations=refs,
     )
+    judicial_points = [JudicialPoint(
+        title=point.principle_title or f"{topic}的具体认定",
+        text=f"{point.text}该案中，{point.factors.rstrip('。')}。",
+        origin="ai", citations=point.citations,
+    ) for _, _, point in selected]
+    table = None
+    if len(selected) > 1:
+        dimensions = [
+            ("request", "争议请求", "request"),
+            ("facts", "关键事实", "factors"),
+            ("evidence", "合同与证据", "contract_evidence"),
+            ("holding", "裁判处理", "text"),
+            ("boundary", "参考边界", "boundary"),
+        ]
+        table = ComparisonTable(
+            topic=topic,
+            cases=[CaseSummary.model_validate(case.model_dump()) for _, case, _ in selected],
+            rows=[ComparisonRow(key=key, label=label, cells=[
+                Point(text=value, origin="ai", citations=point.citations)
+                if (value := getattr(point, field)) and value.strip() else None
+                for _, _, point in selected
+            ]) for key, label, field in dimensions],
+        )
     comparisons = []
     first = selected[0]
     for other in selected[1:]:
@@ -85,4 +113,5 @@ def build_answer(
             origin="ai", citations=refs,
         ))
     return SearchAnswer(search_id=search_id, status="ready", conclusion=summary,
-                        judicial_view=view, case_comparison=comparisons)
+                        judicial_view=view, case_comparison=comparisons,
+                        judicial_points=judicial_points, comparison_table=table)

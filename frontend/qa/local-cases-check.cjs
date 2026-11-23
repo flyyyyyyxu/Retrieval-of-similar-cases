@@ -23,14 +23,19 @@ const output = process.env.QINGAN_SCREENSHOTS || __dirname;
     await page.locator('.case-row').first().waitFor();
     await page.locator('.search-answer:not(.is-pending) .answer-citation').first().waitFor();
     const row = page.locator('.case-row').first();
+    await row.scrollIntoViewIfNeeded();
     await row.getByRole('tab', { name: '案例分析', exact: true }).waitFor();
     await row.getByRole('tab', { name: '案例分析', exact: true }).click();
     assert((await row.locator('[role=tabpanel]:visible').innerText()).includes('AI归纳'));
     await page.screenshot({ path: path.join(output, 'local-cases-results.png'), fullPage: true });
+    await page.locator('.search-answer').screenshot({ path: path.join(output, 'analysis-comparison-desktop.png') });
     assert.equal(await page.locator('.case-row .answer-citation, .analysis-citations').count(), 0);
     assert.deepEqual(await page.locator('.answer-part h3').allTextContents(), ['总结', '裁判观点', '案例比较']);
     assert((await page.locator('#answer-summary').locator('..').innerText()).includes('复利'));
-    assert((await page.locator('#answer-comparison').locator('..').innerText()).includes('相比'));
+    assert.equal(await page.locator('.case-comparison-table').count(), 1);
+    assert.deepEqual(await page.locator('.case-comparison-table tbody th').allTextContents(), ['争议请求', '关键事实', '合同与证据', '裁判处理', '参考边界']);
+    assert((await page.locator('.judicial-points > li').count()) >= 2);
+    assert.equal(await page.locator('.judicial-points h4').count(), await page.locator('.judicial-points > li').count());
     const firstId = await row.getAttribute('data-case-id');
     const detail = await (await page.request.get(`${base}/api/cases/${firstId}`)).json();
     const analysisTarget = await row.locator('[role=tabpanel]:visible .view-original').getAttribute('href');
@@ -54,6 +59,18 @@ const output = process.env.QINGAN_SCREENSHOTS || __dirname;
       assert.equal(await page.locator('.reader-target p').innerText(), detail.paragraphs.find(p => p.id === pid).text);
       await page.getByRole('button', { name: '收起阅读栏', exact: true }).click();
     }
+    // Each table cell citation must open its own case and exact supporting paragraph.
+    const tableCitation = page.locator('.case-comparison-table td .answer-citation').first();
+    const tableHref = await tableCitation.getAttribute('href');
+    const tableParts = tableHref.split('/');
+    const tableCase = decodeURIComponent(tableParts[2]), tableParagraph = decodeURIComponent(tableParts[3]);
+    const tableDetail = await (await page.request.get(`${base}/api/cases/${tableCase}`)).json();
+    await tableCitation.click();
+    await page.locator('.reader-target').waitFor();
+    assert.equal(await page.locator('.reader-target p').innerText(), tableDetail.paragraphs.find(p => p.id === tableParagraph).text);
+    assert((await page.locator('.reader-document-heading h2').innerText()).includes(tableDetail.title));
+    assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), 'reader split keeps comparison scroll contained');
+    await page.getByRole('button', { name: '收起阅读栏', exact: true }).click();
     const sourceByNumber = new Map();
     for (const citation of await page.locator('.search-answer .answer-citation').all()) {
       const number = await citation.innerText(), href = await citation.getAttribute('href');
@@ -63,15 +80,20 @@ const output = process.env.QINGAN_SCREENSHOTS || __dirname;
     // Simulate history created before the three-part contract; reload should regenerate it.
     await page.evaluate(() => {
       const data = JSON.parse(localStorage.getItem('qingan.api.v2'));
-      delete data.history[0].answer.version;
+      data.history[0].answer.version = 2;
+      delete data.history[0].answer.judicial_points;
+      delete data.history[0].answer.comparison_table;
       delete data.history[0].answer.case_comparison;
       localStorage.setItem('qingan.api.v2', JSON.stringify(data));
     });
     const regenerated = page.waitForResponse(r => r.url().endsWith('/api/search/answer'));
     await page.reload();
-    assert.equal((await (await regenerated).json()).version, 2);
+    assert.equal((await (await regenerated).json()).version, 3);
     await page.locator('#answer-comparison').waitFor();
-    assert((await page.locator('#answer-comparison').locator('..').innerText()).includes('相比'));
+    assert.equal(await page.locator('.case-comparison-table').count(), 1);
+    assert.deepEqual(await page.locator('.case-comparison-table tbody th').allTextContents(), ['争议请求', '关键事实', '合同与证据', '裁判处理', '参考边界']);
+    assert((await page.locator('.judicial-points > li').count()) >= 2);
+    assert.equal(await page.locator('.judicial-points h4').count(), await page.locator('.judicial-points > li').count());
     await page.locator('[data-action=edit-query]').click();
     await page.locator('#query').fill('借款逾期后，复利及律师费应如何审查？');
     await page.locator('[data-scope-summary=regions]').click();
@@ -89,8 +111,23 @@ const output = process.env.QINGAN_SCREENSHOTS || __dirname;
     for (const width of [320, 390, 768, 1440]) {
       await page.setViewportSize({ width, height: 1100 });
       assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), `overflow at ${width}`);
+      const wrapper = page.locator('.comparison-scroll');
+      if (await wrapper.count() && width < 768) {
+        assert(await wrapper.evaluate(el => el.scrollWidth > el.clientWidth), 'comparison scroll stays inside the table');
+        await wrapper.focus();
+        await wrapper.evaluate(el => { el.scrollLeft = 0; });
+        await page.keyboard.press('ArrowRight');
+        await page.waitForFunction(() => document.querySelector('.comparison-scroll').scrollLeft > 0);
+      }
     }
     await page.screenshot({ path: path.join(output, 'local-cases-filtered.png'), fullPage: true });
+    await page.setViewportSize({ width: 390, height: 1100 });
+    await page.locator('.comparison-scroll').evaluate(el => { el.scrollLeft = 0; });
+    await page.locator('.search-answer').screenshot({ path: path.join(output, 'analysis-comparison-mobile.png') });
+    await page.setViewportSize({ width: 1440, height: 1100 });
+    await page.evaluate(() => { document.documentElement.style.fontSize = '200%'; });
+    assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), '200% text stays readable without page overflow');
+    await page.evaluate(() => { document.documentElement.style.fontSize = ''; });
     // Generated text is still untrusted text, even when citations have passed validation.
     const unsafe = await browser.newPage({ viewport: { width: 1440, height: 1100 } });
     await unsafe.route('**/api/cases/*', async route => {
@@ -103,12 +140,13 @@ const output = process.env.QINGAN_SCREENSHOTS || __dirname;
     await unsafe.locator('[data-action=use-example]').first().waitFor();
     await unsafe.locator('#query').fill('金融借款复利如何审查');
     await unsafe.locator('#search-form button[type=submit]').click();
+    await unsafe.locator('.case-row').first().scrollIntoViewIfNeeded();
     await unsafe.locator('.case-row').first().getByRole('tab', { name: '案例分析', exact: true }).waitFor();
     assert((await unsafe.locator('.case-row').first().innerText()).includes('<img'));
     assert.equal(await unsafe.locator('.case-field-panels img').count(), 0);
     assert.equal(await unsafe.evaluate(() => window.injected), undefined);
     await unsafe.close();
     assert.deepEqual(errors, []);
-    console.log('PASS: three answer sections; per-tab original paragraphs and case title; unique global citations; history refresh; province/level filters; 320/390/768/1440 layouts; safe text.');
+    console.log('PASS: numbered judicial points; five-dimension comparison table; per-tab original paragraphs and case title; unique global citations; history refresh; province/level filters; 320/390/768/1440 layouts; safe text.');
   } finally { await browser.close(); }
 })().catch(error => { console.error(error); process.exit(1); });

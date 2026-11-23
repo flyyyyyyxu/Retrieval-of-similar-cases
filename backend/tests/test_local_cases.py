@@ -67,6 +67,9 @@ def test_answer_only_uses_returned_cases_and_verified_analysis():
     hit = Hit(case=case, rank=1, score=1)
     answer = build_answer("s1", query, [hit], [case])
     assert answer.status == "ready"
+    assert answer.judicial_points and answer.judicial_points[0].title
+    assert "合同未明确复利计收方式" in answer.judicial_points[0].text
+    assert answer.comparison_table is None
     assert "复利约定不明" in answer.judicial_view.text
     assert all(c.verified and c.case_id == case.id for c in answer.judicial_view.citations)
     assert build_answer("s1", query, [], [case]).status == "pending"
@@ -108,10 +111,41 @@ def test_comparison_uses_same_topic_and_both_sources():
     assert "合同未明确" in comparison.text and "计息约定明确" in comparison.text
     assert {c.case_id for c in comparison.citations} == {left.id, right.id}
     assert all(c.verified for c in comparison.citations)
+    table = answer.comparison_table
+    assert {c.id for c in table.cases} == {left.id, right.id}
+    assert [r.label for r in table.rows] == ["争议请求", "关键事实", "合同与证据", "裁判处理", "参考边界"]
+    for row in table.rows:
+        assert len(row.cells) == len(table.cases)
+        for case, cell in zip(table.cases, row.cells, strict=True):
+            if cell is not None:
+                assert all(c.verified and c.case_id == case.id for c in cell.citations)
+    # 未结构化的合同与证据信息保持缺失，不能从裁判结论反推补造。
+    assert next(row for row in table.rows if row.key == "evidence").cells == [None, None]
     right.research_points[0].topic = "保证责任"
     right.research_points[0].text = "法院支持保证责任。"
     right.research_points[0].factors = "保证期间未经过"
     assert "尚不能形成多案比较" in build_answer("s2", query, hits, [left, right]).case_comparison[0].text
+
+
+def test_comparison_does_not_promote_low_relevance_to_force_different_outcome():
+    from app.schemas import ResearchPoint
+
+    cases = []
+    for i in range(4):
+        case = annotated_case()
+        case.id = f"fictional-{i}"
+        quote = case.paragraphs[0].text
+        case.research_points = [ResearchPoint(
+            topic="利息罚息与复利", outcome="rejected" if i < 3 else "supported",
+            text="复利请求不获支持，需核对复利约定" if i < 3 else "支持利息请求",
+            factors="复利约定不明" if i < 3 else "有借款合同",
+            origin="ai", citations=[{"case_id": case.id, "paragraph_id": "p1", "quote": quote}],
+        )]
+        cases.append(case)
+    hits = [Hit(case=c, rank=i, score=1) for i, c in enumerate(cases, 1)]
+    q = ParsedQuery(raw_text="复利请求如何处理", case_type="financial-loan", keywords=["复利"])
+    table = build_answer("s4", q, hits, cases).comparison_table
+    assert [c.id for c in table.cases] == [c.id for c in cases[:3]]
 
 
 def test_research_point_rejects_cross_case_reference():

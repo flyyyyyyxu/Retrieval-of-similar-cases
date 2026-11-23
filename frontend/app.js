@@ -517,7 +517,7 @@ function restoreHistory(id, navigateTo = true) {
     searchFilters: { ...blankScope(), ...(record.inputFilters || record.query.filters || {}) },
   });
   state.selectedCases.clear();
-  if (!record.answer || record.answer.version !== 2) {
+  if (!record.answer || record.answer.version !== 3) {
     state.answer = null; state.answerStatus = 'loading';
     refreshHistoricalAnswer(record.id);
   }

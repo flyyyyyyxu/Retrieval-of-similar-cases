@@ -1128,6 +1128,69 @@
         ],
         "title": "Citation"
       },
+      "ComparisonRow": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "cells": {
+            "items": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/Point"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Cells",
+            "description": "与 comparison_table.cases 顺序一致；null=缺少依据"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "label",
+          "cells"
+        ],
+        "title": "ComparisonRow"
+      },
+      "ComparisonTable": {
+        "properties": {
+          "topic": {
+            "type": "string",
+            "title": "Topic"
+          },
+          "cases": {
+            "items": {
+              "$ref": "#/components/schemas/CaseSummary"
+            },
+            "type": "array",
+            "title": "Cases"
+          },
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/ComparisonRow"
+            },
+            "type": "array",
+            "title": "Rows"
+          }
+        },
+        "type": "object",
+        "required": [
+          "topic",
+          "cases",
+          "rows"
+        ],
+        "title": "ComparisonTable"
+      },
       "ExplainRequest": {
         "properties": {
           "query": {
@@ -1402,6 +1465,41 @@
           "score"
         ],
         "title": "Hit"
+      },
+      "JudicialPoint": {
+        "properties": {
+          "text": {
+            "type": "string",
+            "title": "Text"
+          },
+          "origin": {
+            "type": "string",
+            "enum": [
+              "original",
+              "ai"
+            ],
+            "title": "Origin",
+            "description": "original=原文摘录；ai=模型归纳"
+          },
+          "citations": {
+            "items": {
+              "$ref": "#/components/schemas/Citation"
+            },
+            "type": "array",
+            "title": "Citations"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          }
+        },
+        "type": "object",
+        "required": [
+          "text",
+          "origin",
+          "title"
+        ],
+        "title": "JudicialPoint"
       },
       "LawArticle": {
         "properties": {
@@ -2031,6 +2129,50 @@
             "type": "string",
             "title": "Factors",
             "description": "本案影响结论的具体事实或约定，和结论共用原文依据"
+          },
+          "principle_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Principle Title"
+          },
+          "request": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Request"
+          },
+          "contract_evidence": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contract Evidence"
+          },
+          "boundary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Boundary"
           }
         },
         "type": "object",
@@ -2439,10 +2581,27 @@
             "type": "array",
             "title": "Case Comparison"
           },
+          "judicial_points": {
+            "items": {
+              "$ref": "#/components/schemas/JudicialPoint"
+            },
+            "type": "array",
+            "title": "Judicial Points"
+          },
+          "comparison_table": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ComparisonTable"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "version": {
             "type": "integer",
             "title": "Version",
-            "default": 2
+            "default": 3
           }
         },
         "type": "object",

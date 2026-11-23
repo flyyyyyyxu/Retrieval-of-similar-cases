@@ -154,6 +154,37 @@ select:hover, .search-scope select:hover { border-color: var(--secondary); }
 .answer-part { margin-block-start: 20px; }
 .answer-part h3 { font: 600 var(--text-ui)/1.6 var(--sans); color: var(--ink); margin-block-end: 8px; }
 .answer-part .search-answer-text + .search-answer-text { margin-block-start: 12px; }
+/* Ordered judicial reasoning and a comparison table share the response typography. */
+.judicial-points { padding-inline-start: 1.6em; margin: 0; max-inline-size: 80ch; }
+.judicial-points li { padding-inline-start: 6px; margin-block-end: 18px; }
+.judicial-points li::marker { font-weight: 600; color: var(--ink); }
+.judicial-points h4 { font: 600 var(--text-body)/1.8 var(--sans); margin-block-end: 4px; color: var(--ink); }
+.judicial-points .search-answer-text { white-space: normal; }
+.comparison-intro { font: 400 var(--text-meta)/1.8 var(--sans); color: var(--muted); margin-block-end: 12px; }
+.comparison-shell { container-type: inline-size; min-inline-size: 0; }
+.comparison-scroll-hint { display: none; color: var(--muted); font: 400 var(--text-caption)/1.8 var(--sans); margin-block-end: 8px; }
+.comparison-scroll { overflow: auto; max-inline-size: 100%; min-inline-size: 0; container-type: inline-size; border: 1px solid var(--line); border-radius: 6px; }
+.comparison-scroll:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
+.case-comparison-table { inline-size: 100%; min-inline-size: 47rem; table-layout: fixed; border-collapse: separate; border-spacing: 0; font: 400 var(--text-body)/1.9 var(--sans); color: var(--secondary); text-align: start; }
+.case-comparison-table .comparison-dimension { inline-size: 7rem; }
+.case-comparison-table th, .case-comparison-table td { padding: 14px 16px; vertical-align: top; text-align: start; overflow-wrap: anywhere; white-space: normal; border-block-end: 1px solid var(--line); border-inline-end: 1px solid var(--line); }
+.case-comparison-table thead { position: sticky; inset-block-start: 0; z-index: 2; }
+.case-comparison-table thead th { background: var(--warm); font-weight: 500; color: var(--ink); }
+.case-comparison-table tbody th { position: sticky; inset-inline-start: 0; z-index: 1; background: var(--warm); font-weight: 500; color: var(--ink); }
+.case-comparison-table thead th:first-child { position: sticky; inset-inline-start: 0; z-index: 3; }
+.case-comparison-table tr > :last-child { border-inline-end: 0; }
+.case-comparison-table tbody tr:last-child > * { border-block-end: 0; }
+.case-comparison-table tbody tr[data-comparison-dimension="holding"] td { color: var(--ink); font-weight: 500; }
+.comparison-case-index, .comparison-case-meta { display: block; color: var(--muted); font: 400 var(--text-caption)/1.8 var(--sans); }
+.comparison-case-link { display: inline-block; color: var(--ink); font-weight: 500; margin-block: 4px; }
+.comparison-case-link:hover { text-decoration: underline; }
+.comparison-missing { color: var(--muted); }
+@container (inline-size < 660px) {
+  .comparison-scroll-hint { display: block; }
+  .case-comparison-table { min-inline-size: 43rem; }
+  .case-comparison-table .comparison-dimension { inline-size: 6rem; }
+  .case-comparison-table th, .case-comparison-table td { padding: 12px; }
+}
 .answer-empty { color: var(--muted); }
 .search-answer.is-pending .search-answer-text { color: var(--secondary); font-size: var(--text-body); }
 .answer-note, .answer-status { color: var(--muted); font-size: var(--text-meta); line-height: 1.8; }

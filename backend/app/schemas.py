@@ -139,6 +139,26 @@ class ResearchPoint(Point):
     topic: str
     outcome: Literal["supported", "limited", "rejected", "procedural"]
     factors: str = Field(description="本案影响结论的具体事实或约定，和结论共用原文依据")
+    principle_title: str | None = None
+    request: str | None = None
+    contract_evidence: str | None = None
+    boundary: str | None = None
+
+
+class JudicialPoint(Point):
+    title: str
+
+
+class ComparisonRow(BaseModel):
+    key: str
+    label: str
+    cells: list[Point | None] = Field(description="与 comparison_table.cases 顺序一致；null=缺少依据")
+
+
+class ComparisonTable(BaseModel):
+    topic: str
+    cases: list[CaseSummary]
+    rows: list[ComparisonRow]
 
 
 class CaseSection(BaseModel):
@@ -264,7 +284,9 @@ class SearchAnswer(BaseModel):
     conclusion: Point | None = None
     judicial_view: Point | None = None
     case_comparison: list[Point] = Field(default_factory=list)
-    version: int = 2
+    judicial_points: list[JudicialPoint] = Field(default_factory=list)
+    comparison_table: ComparisonTable | None = None
+    version: int = 3
 
 
 # ---------- 反馈 ----------
