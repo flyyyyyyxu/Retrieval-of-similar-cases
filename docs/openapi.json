@@ -139,7 +139,7 @@
     },
     "/api/search/answer": {
       "post": {
-        "summary": "综合结论与裁判观点（策略预留）",
+        "summary": "基于命中文书的结论与裁判观点",
         "operationId": "search_answer_api_search_answer_post",
         "requestBody": {
           "content": {
@@ -781,6 +781,13 @@
             "type": "array",
             "title": "Paragraphs"
           },
+          "research_points": {
+            "items": {
+              "$ref": "#/components/schemas/ResearchPoint"
+            },
+            "type": "array",
+            "title": "Research Points"
+          },
           "full_text_available": {
             "type": "boolean",
             "title": "Full Text Available",
@@ -824,6 +831,7 @@
             "type": "string",
             "enum": [
               "overview",
+              "analysis",
               "opinion",
               "facts",
               "claims",
@@ -852,6 +860,22 @@
             },
             "type": "array",
             "title": "Paragraph Ids"
+          },
+          "origin": {
+            "type": "string",
+            "enum": [
+              "original",
+              "ai"
+            ],
+            "title": "Origin",
+            "default": "original"
+          },
+          "citations": {
+            "items": {
+              "$ref": "#/components/schemas/Citation"
+            },
+            "type": "array",
+            "title": "Citations"
           }
         },
         "type": "object",
@@ -1967,6 +1991,58 @@
         ],
         "title": "ReportUpdate"
       },
+      "ResearchPoint": {
+        "properties": {
+          "text": {
+            "type": "string",
+            "title": "Text"
+          },
+          "origin": {
+            "type": "string",
+            "enum": [
+              "original",
+              "ai"
+            ],
+            "title": "Origin",
+            "description": "original=原文摘录；ai=模型归纳"
+          },
+          "citations": {
+            "items": {
+              "$ref": "#/components/schemas/Citation"
+            },
+            "type": "array",
+            "title": "Citations"
+          },
+          "topic": {
+            "type": "string",
+            "title": "Topic"
+          },
+          "outcome": {
+            "type": "string",
+            "enum": [
+              "supported",
+              "limited",
+              "rejected",
+              "procedural"
+            ],
+            "title": "Outcome"
+          },
+          "factors": {
+            "type": "string",
+            "title": "Factors",
+            "description": "本案影响结论的具体事实或约定，和结论共用原文依据"
+          }
+        },
+        "type": "object",
+        "required": [
+          "text",
+          "origin",
+          "topic",
+          "outcome",
+          "factors"
+        ],
+        "title": "ResearchPoint"
+      },
       "ResultFilterOptions": {
         "properties": {
           "search_id": {
@@ -2355,6 +2431,18 @@
                 "type": "null"
               }
             ]
+          },
+          "case_comparison": {
+            "items": {
+              "$ref": "#/components/schemas/Point"
+            },
+            "type": "array",
+            "title": "Case Comparison"
+          },
+          "version": {
+            "type": "integer",
+            "title": "Version",
+            "default": 2
           }
         },
         "type": "object",
@@ -2362,7 +2450,7 @@
           "search_id"
         ],
         "title": "SearchAnswer",
-        "description": "综合答复预留契约。策略接入后，两部分均需带通过原文校验的引用。"
+        "description": "总结、裁判观点与案例比较；各部分附原文引用，无依据时 pending。"
       },
       "SearchAnswerRequest": {
         "properties": {

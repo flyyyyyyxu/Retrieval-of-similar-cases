@@ -2,6 +2,7 @@ import { esc, icon, caseHash } from '../ui.js';
 import { state, isSaved, documentKey } from '../store.js';
 
 const fields = [
+  ['analysis', '案例分析', []],
   ['overview', '案情概要', ['案情概要', '案件概要', '基本案情']],
   ['opinion', '本院认为', ['本院认为', '裁判理由', '裁判要旨']],
   ['facts', '本院查明', ['本院查明', '经审理查明', '审理查明', '案件事实', '事实认定']],
@@ -31,12 +32,12 @@ export function updateExcerptControls(root = document) {
 
 export function contentSections(hit, doc) {
   if (doc?.content_sections != null) {
-    return doc.content_sections.map(section => {
+    return doc.content_sections.filter(section => section.origin !== 'ai' || (section.citations?.length && section.citations.every(c => c.verified && c.case_id === doc.id))).map(section => {
       const label = fields.find(field => field[0] === section.key)?.[1] || '相关内容';
       const paragraphs = section.text?.trim()
         ? [{ text: section.text, id: section.paragraph_ids[0] || '' }]
         : doc.paragraphs.filter(p => section.paragraph_ids.includes(p.id));
-      return { key: section.key, label, paragraphs };
+      return { key: section.key, label, paragraphs, paragraphIds: section.paragraph_ids, origin: section.origin, citations: section.citations || [] };
     }).filter(section => section.paragraphs.length);
   }
   const paragraphs = doc?.paragraphs || hit.snippets || [];
@@ -51,7 +52,7 @@ export function caseCard(hit, index, collection = false) {
   const doc = state.documents.get(key);
   const error = state.documentErrors.get(key);
   const tabs = contentSections(hit, doc);
-  const preferred = state.caseTabs.get(key) || 'opinion';
+  const preferred = state.caseTabs.get(key) || (tabs.some(tab => tab.key === 'analysis') ? 'analysis' : 'opinion');
   const active = tabs.some(tab => tab.key === preferred) ? preferred : tabs[0]?.key;
   const token = encodeURIComponent(c.id);
   const origin = collection ? 'data-origin="saved"' : '';
@@ -63,9 +64,16 @@ export function caseCard(hit, index, collection = false) {
   function panel(tab) {
     const paragraphs = tab.paragraphs;
     const selected = active === tab.key;
-    return `<div role="tabpanel" id="case-panel-${token}-${tab.key}" aria-labelledby="case-tab-${token}-${tab.key}" ${selected ? 'tabindex="0"' : 'hidden'}><div class="case-field-content ${expanded ? 'is-expanded' : ''}">
+    const analysisNote = tab.origin === 'ai' ? '<p class="answer-note">AI归纳</p>' : '';
+    // 每个栏目按自己的原文依据定位；跳过仅含“本院认为”等标题的空引导段。
+    const sourceIds = [...(tab.paragraphIds || []), ...paragraphs.map(p => p.id)].filter(Boolean);
+    const target = sourceIds.find(id => {
+      const source = doc?.paragraphs.find(p => p.id === id);
+      return source && !['本院认为', '本院查明', '经审理查明', '判决如下', '裁定如下'].includes(source.text.replace(/[：:，,。\s]/g, ''));
+    }) || sourceIds[0];
+    return `<div role="tabpanel" id="case-panel-${token}-${tab.key}" aria-labelledby="case-tab-${token}-${tab.key}" ${selected ? 'tabindex="0"' : 'hidden'}>${analysisNote}<div class="case-field-content ${expanded ? 'is-expanded' : ''}">
       ${paragraphs.length ? paragraphs.map(p => `<p>${highlightText(p.text)}</p>`).join('') : error ? `<p class="field-empty">暂时无法读取文书。<button type="button" class="text-button" data-action="retry-document" data-id="${esc(c.id)}">重试</button></p>` : !doc ? '<p class="field-empty" role="status">正在读取文书内容…</p>' : '<p class="field-empty">暂无该部分内容。</p>'}
-    </div>${paragraphs.length ? `<div class="field-actions"><button type="button" class="text-button" data-action="expand-case" data-id="${esc(c.id)}">${expanded ? '收起' : '展开'} ${icon('chevron')}</button><a class="text-button view-original" href="${esc(caseHash(c.id, paragraphs[0]?.id))}" data-action="open-case" data-id="${esc(c.id)}" ${origin}>${paragraphs[0]?.id ? '定位原文' : '查看原文'} ${icon('arrow')}</a></div>` : ''}</div>`;
+    </div>${paragraphs.length ? `<div class="field-actions"><button type="button" class="text-button" data-action="expand-case" data-id="${esc(c.id)}">${expanded ? '收起' : '展开'} ${icon('chevron')}</button><a class="text-button view-original" href="${esc(caseHash(c.id, target))}" data-action="open-case" data-id="${esc(c.id)}" ${origin}>${target ? '定位原文' : '查看原文'} ${icon('arrow')}</a></div>` : ''}</div>`;
   }
 
   return `<article class="case-row reference-case" data-case-id="${esc(c.id)}" data-collection="${collection}" data-selected="${state.selectedCases.has(c.id)}">

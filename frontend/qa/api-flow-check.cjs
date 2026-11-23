@@ -62,8 +62,7 @@ const output = process.env.QINGAN_SCREENSHOTS || __dirname;
     assert.equal(await page.locator('.case-row').count(), result.hits.length);
     assert.equal(result.hits.length, 4);
     await page.locator('#search-progress:not([open])').waitFor();
-    assert((await page.locator('.search-answer-text').innerText()).includes('结论：'));
-    assert((await page.locator('.search-answer-text').innerText()).includes('裁判观点：'));
+    assert.deepEqual(await page.locator('.answer-part h3').allTextContents(), ['总结', '裁判观点', '案例比较']);
     assert.equal(requests.filter(url => url.endsWith('/api/search/answer')).length, 1);
     assert(!requests.some(url => url.endsWith('/data.js')));
     await page.screenshot({ path: path.join(output, 'direct-results-1440.png'), fullPage: true });
@@ -156,23 +155,24 @@ const output = process.env.QINGAN_SCREENSHOTS || __dirname;
     assert.equal(await page.locator('#query').inputValue(), '这是用户后来编辑的另一个检索问题');
     assert.equal(await page.locator('.optimization-preview').count(), 0);
 
-    // Future answer strategies fill two cited fields into one reply paragraph.
+    // Three cited answer parts use separate semantic sections.
     const answerPage = await browser.newPage();
     await answerPage.route('**/api/search/answer', async route => {
       const searchId = route.request().postDataJSON().search_id;
       const detail = await (await answerPage.request.get(`${base}/api/cases/loan-1`)).json();
       const paragraph = detail.paragraphs.find(p => p.id === 'p5');
       const point = text => ({ text, origin: 'ai', citations: [{ case_id: 'loan-1', paragraph_id: 'p5', quote: paragraph.text, verified: true }] });
-      await route.fulfill({ json: { search_id: searchId, status: 'ready', conclusion: point('测试结论内容'), judicial_view: point('测试裁判观点内容') } });
+      await route.fulfill({ json: { search_id: searchId, status: 'ready', version: 2, conclusion: point('测试总结内容'), judicial_view: point('测试裁判观点内容'), case_comparison: [point('测试案例比较内容')] } });
     });
     await answerPage.goto(`${base}/#/search`);
     await answerPage.locator('#query').fill(original);
     await answerPage.locator('#search-form button[type=submit]').click();
     await answerPage.locator('.case-row').first().waitFor();
-    assert.equal(await answerPage.locator('.search-answer-text').count(), 1);
-    assert((await answerPage.locator('.search-answer-text').innerText()).includes('测试结论内容'));
-    assert((await answerPage.locator('.search-answer-text').innerText()).includes('测试裁判观点内容'));
-    assert.equal(await answerPage.locator('.answer-citation').count(), 2);
+    assert.equal(await answerPage.locator('.answer-part').count(), 3);
+    assert((await answerPage.locator('#answer-summary').locator('..').innerText()).includes('测试总结内容'));
+    assert((await answerPage.locator('#answer-viewpoint').locator('..').innerText()).includes('测试裁判观点内容'));
+    assert((await answerPage.locator('#answer-comparison').locator('..').innerText()).includes('测试案例比较内容'));
+    assert.equal(await answerPage.locator('.answer-citation').count(), 3);
     await answerPage.close();
 
     // Returned document fields are untrusted text; source links only accept HTTP(S).

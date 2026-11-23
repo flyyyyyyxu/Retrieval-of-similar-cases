@@ -127,15 +127,18 @@ def search(req: SearchRequest):
     return resp
 
 
-@router.post("/search/answer", response_model=SearchAnswer, summary="综合结论与裁判观点（策略预留）")
+@router.post("/search/answer", response_model=SearchAnswer, summary="基于命中文书的结论与裁判观点")
 def search_answer(req: SearchAnswerRequest):
     saved = store().get_search(req.search_id)
     if saved is None:
         raise HTTPException(404, "检索记录不存在，请重新检索")
     request, response = saved
+    if response["data_mode"] != get_settings().case_source:
+        raise HTTPException(409, "当前案例库与检索记录不一致，请重新检索")
     query = SearchRequest.model_validate(request).query
     hits = [Hit.model_validate(hit) for hit in response["hits"]]
-    return build_answer(req.search_id, query, hits)
+    cases = [case for hit in hits if (case := source().get(hit.case.id)) is not None]
+    return build_answer(req.search_id, query, hits, cases)
 
 
 @router.get("/cases/{case_id}", response_model=CaseDetail, summary="文书详情与段落")
@@ -195,7 +198,8 @@ def create_report(req: ReportCreateRequest):
             raise HTTPException(409, "部分文书暂时无法读取，请稍后重试生成报告")
         cases.append(doc)
     now = datetime.now(UTC).isoformat()
-    database = {"mock": "清案虚构演示样例库", "es": "案例库", "replay": "案例库缓存回放"}[response["data_mode"]]
+    mock_label = "清案虚构演示样例库" if all(c.source_type == "demo" for c in cases) else "清案本地案例库"
+    database = {"mock": mock_label, "es": "案例库", "replay": "案例库缓存回放"}[response["data_mode"]]
     query = SearchRequest.model_validate(request).query
     completed = datetime.now(ZoneInfo("Asia/Shanghai")).date().isoformat()
     title, ops = report_content(query, cases, database, completed, req.filters)

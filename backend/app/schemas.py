@@ -122,14 +122,36 @@ class LawReference(BaseModel):
     articles: list[LawArticle] = Field(default_factory=list)
 
 
+class Citation(BaseModel):
+    case_id: str
+    paragraph_id: str
+    quote: str = Field(description="原文引句，必须能在对应段落中逐字找到")
+    verified: bool = False
+
+
+class Point(BaseModel):
+    text: str
+    origin: Literal["original", "ai"] = Field(description="original=原文摘录；ai=模型归纳")
+    citations: list[Citation] = Field(default_factory=list)
+
+
+class ResearchPoint(Point):
+    topic: str
+    outcome: Literal["supported", "limited", "rejected", "procedural"]
+    factors: str = Field(description="本案影响结论的具体事实或约定，和结论共用原文依据")
+
+
 class CaseSection(BaseModel):
-    key: Literal["overview", "opinion", "facts", "claims", "defense", "issues", "evidence", "result", "related"]
+    key: Literal["overview", "analysis", "opinion", "facts", "claims", "defense", "issues", "evidence", "result", "related"]
     text: str | None = None
     paragraph_ids: list[str] = Field(default_factory=list)
+    origin: Literal["original", "ai"] = "original"
+    citations: list[Citation] = Field(default_factory=list)
 
 
 class CaseDetail(CaseSummary):
     paragraphs: list[Paragraph]
+    research_points: list[ResearchPoint] = Field(default_factory=list)
     full_text_available: bool = True
     law_references: list[LawReference] = Field(default_factory=list)
     content_sections: list[CaseSection] | None = Field(
@@ -218,19 +240,6 @@ class ResultFilterOptions(BaseModel):
 # ---------- 解释与引用 ----------
 
 
-class Citation(BaseModel):
-    case_id: str
-    paragraph_id: str
-    quote: str = Field(description="原文引句，必须能在对应段落中逐字找到")
-    verified: bool = False
-
-
-class Point(BaseModel):
-    text: str
-    origin: Literal["original", "ai"] = Field(description="original=原文摘录；ai=模型归纳")
-    citations: list[Citation] = Field(default_factory=list)
-
-
 class ExplainRequest(BaseModel):
     query: ParsedQuery
     search_id: str | None = None
@@ -248,12 +257,14 @@ class SearchAnswerRequest(BaseModel):
 
 
 class SearchAnswer(BaseModel):
-    """综合答复预留契约。策略接入后，两部分均需带通过原文校验的引用。"""
+    """总结、裁判观点与案例比较；各部分附原文引用，无依据时 pending。"""
 
     search_id: str
     status: Literal["pending", "ready"] = "pending"
     conclusion: Point | None = None
     judicial_view: Point | None = None
+    case_comparison: list[Point] = Field(default_factory=list)
+    version: int = 2
 
 
 # ---------- 反馈 ----------

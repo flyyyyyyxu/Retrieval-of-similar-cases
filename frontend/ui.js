@@ -23,9 +23,9 @@ const paths = {
 export const icon = name => `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths[name] || paths.book}</svg>`;
 export const logo = () => `<a href="#/" class="brand" aria-label="清案，返回产品首页"><span class="brand-mark">${icon('book')}</span><span>清案</span><span class="brand-divider"></span><small>类案检索</small></a>`;
 export const caseHash = (id, paragraph) => `#/case/${encodeURIComponent(id)}${paragraph ? `/${encodeURIComponent(paragraph)}` : ''}`;
-export const modeLabel = mode => ({ mock: '虚构演示数据', es: '案例库检索', replay: '缓存回放' })[mode] || '服务连接中';
+export const modeLabel = mode => ({ mock: '本地样例数据', es: '案例库检索', replay: '缓存回放' })[mode] || '服务连接中';
 export const sourceLabel = type => ({ demo: '虚构演示案例', guiding: '指导性案例', typical: '官方典型案例', reference: '入库参考案例', judgment: '裁判文书' })[type] || '来源类型待确认';
-export const typeLabel = type => ({ 'private-lending': '民间借贷纠纷' })[type] || type || '待确认';
+export const typeLabel = type => ({ 'private-lending': '民间借贷纠纷', 'financial-loan': '金融借款合同纠纷' })[type] || type || '待确认';
 const degradationLabels = {
   llm_unavailable: '模型未配置或调用失败，当前使用规则处理。',
   query_broadened: '严格匹配结果较少，已补充宽松关键词匹配；显式筛选条件保留。',

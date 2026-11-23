@@ -39,7 +39,7 @@ export const api = (() => {
     /** 独立的可选问题优化；只在用户点击按钮时调用 */
     optimize: (text, options) => request('/query/optimize', { ...options, method: 'POST', body: { text } }),
 
-    /** 综合答复预留，SearchAnswer: conclusion + judicial_view，各自附引用 */
+    /** 命中文书的预生成分析归纳，SearchAnswer v2: conclusion（总结）+ judicial_view（裁判观点）+ case_comparison（比较段落数组），各自附引用 */
     answer: (searchId, options) => request('/search/answer', { ...options, method: 'POST', body: { search_id: searchId } }),
 
     /** 内部 ParsedQuery + 手选地域/年份/层级 Filters（regions/years/court_levels 数组，同维度OR、跨维度AND；兼容旧单值/年份范围） → { search_id, data_mode, hits, degraded, took_ms } */
@@ -56,7 +56,7 @@ export const api = (() => {
     saveReport: (id, body) => request(`/reports/${encodeURIComponent(id)}`, { method: 'PUT', body }),
     downloadReport: (id, format) => request(`/reports/${encodeURIComponent(id)}/download?format=${format}`, { responseType: 'blob' }),
 
-    /** 文书详情：paragraphs 供原文定位；content_sections 为可选摘要列表，null=未适配，[]=无摘要 */
+    /** 文书详情：paragraphs 供原文定位；content_sections 为可选摘要列表，null=未适配，[]=无摘要；overview/analysis 可为 AI 归纳，origin=ai 且 citations 带已校验引用；research_points 提供同争点裁判结论与比较事实 */
     getCase: (caseId, options) => request(`/cases/${encodeURIComponent(caseId)}`, options),
 
     /** 单篇相似点/差异点，点开案例时再调用 */

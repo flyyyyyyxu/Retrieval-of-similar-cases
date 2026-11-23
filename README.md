@@ -45,6 +45,17 @@ cd backend && uv run pytest              # 测试
 cd backend && uv run python ../eval/run_eval.py   # 评测
 ```
 
+**使用自有金融借款案例（本地离线）**：
+
+```bash
+./scripts/dev-local.sh     # 导入25件文书及分析，前后端同址 http://127.0.0.1:8000
+```
+
+该入口读取项目外 `自有数据库/金融借款合同纠纷_2026-11-23/` 下的汇总与分析文件，
+清洗后写入 Git 忽略的 `var/local_cases.json`，使用独立的 `var/local-demo.db` 保存检索记录。
+不需要内网或外部模型，首页自动使用金融借款示例。数据准备、引用边界及验收见
+[本地案例接入说明](docs/local-cases.md)。原有 `scripts/dev.sh` 与虚构样例配置保留。
+
 **配置大模型（Claude API）**：只需在 `.env` 里填一行，代码不用改。
 
 ```bash
@@ -85,7 +96,7 @@ ANTHROPIC_API_KEY=sk-ant-...     # 在 platform.claude.com 的 API Keys 页面�
 | `POST /api/search` | 按内部要素检索，返回排序结果 |
 | `GET /api/search/{search_id}/filters` | 本次返回结果的可用过滤选项 |
 | `POST /api/search/filter` | 按12类条件过滤已保存结果快照 |
-| `POST /api/search/answer` | 综合结论与裁判观点预留接口，策略未接入时返回 pending |
+| `POST /api/search/answer` | 整理命中文书的预生成分析与引用；无有效分析时返回 pending |
 | `GET /api/cases/{id}` | 文书详情与段落（用于原文定位） |
 | `POST /api/cases/{id}/explain` | 单篇的相似点和差异点（按需调用） |
 | `POST /api/feedback` | 相关 / 不相关 + 原因 |
@@ -138,7 +149,7 @@ docs/              数据审计、openapi.json
 - [x] 前端：直接检索、可选问题优化、处理进度自动收起、答复位置、相似/差异抽屉、原文定位
 - [x] 结果区：右侧多文书 Tab、可选摘要契约、官方典型案例优先、12类过滤、列表/可视化切换；字段映射待案例库审计
 - [x] 检索报告：加入案例/数量徽标、在线编辑、保存/继续编辑、Word/PDF下载；内容直接整理来源文书，详见 `docs/retrieval-reports.md`
-- [ ] 团队确定综合答复策略后接入 `backend/app/pipeline/answer.py`；两部分均须带可核验引用
+- [ ] 团队确定综合答复策略后接入 `backend/app/pipeline/answer.py`；总结、裁判观点和案例比较均须带可核验引用
 - [ ] 真实案例库接入后进行前后端联合验收；补齐缺失字段、服务超时与回放边界
 - [ ] 跑基线对比，整理主要错误
 - [ ] 简版检索报告（只整理已选结果，不重新生成观点）

@@ -4,7 +4,7 @@ import { state, persist, documentKey, explanationKey, currentCase, saveResult, u
 import { route, navigate } from './router.js';
 import { workspace } from './components/layout.js';
 import { openDrawer, closeDrawer, updateDrawer, explanationContent } from './components/drawer.js';
-import { homePage, examples } from './views/home.js';
+import { homePage, examples, setExampleCaseType } from './views/home.js';
 import { searchPage } from './views/search.js';
 import { resultPage } from './views/results.js';
 import { casePage } from './views/case.js';
@@ -116,6 +116,7 @@ function render({ focus = false } = {}) {
 async function connect() {
   try {
     state.health = await api.health();
+    setExampleCaseType(state.health.case_type);
     state.healthError = '';
   } catch (error) {
     state.healthError = error.message;
@@ -185,7 +186,7 @@ async function startSearch(text, scope = state.searchFilters, clearScope = false
   state.progress = [
     { label: '理解检索问题', status: 'running', detail: '识别案情中的争点与检索线索。' },
     { label: '检索相关案例', status: 'waiting', detail: '等待检索线索整理完成。' },
-    { label: '整理检索答复', status: 'waiting', detail: '根据检索结果读取结论与裁判观点。' },
+    { label: '整理检索答复', status: 'waiting', detail: '根据检索结果整理总结、裁判观点和案例比较。' },
   ];
   go('#/results');
   let stage = 0;
@@ -230,7 +231,7 @@ async function startSearch(text, scope = state.searchFilters, clearScope = false
       if (request !== operation) return;
       state.answerStatus = state.answer.status === 'ready' ? 'done' : 'pending';
       setStage(2, state.answer.status === 'ready' ? 'done' : 'skipped', state.answer.status === 'ready'
-        ? '已返回结论与裁判观点，请结合原文引用复核。'
+        ? '已整理总结、裁判观点和案例比较，请结合原文引用复核。'
         : '当前未生成综合答复，可先查看案例原文。');
     } catch (error) {
       if (request !== operation || error.name === 'AbortError') return;
@@ -477,6 +478,21 @@ async function showExplanation(id) {
   }
 }
 
+async function refreshHistoricalAnswer(searchId) {
+  try {
+    const answer = await api.answer(searchId);
+    if (state.result?.search_id !== searchId) return;
+    state.answer = answer;
+    state.answerStatus = answer.status === 'ready' ? 'done' : 'pending';
+    const record = state.history.find(item => item.id === searchId);
+    if (record) { record.answer = structuredClone(answer); record.answerStatus = state.answerStatus; persist(); }
+  } catch {
+    if (state.result?.search_id !== searchId) return;
+    state.answerStatus = 'error';
+  }
+  if (route().view === 'results') render();
+}
+
 function restoreHistory(id, navigateTo = true) {
   const record = state.history.find(item => item.id === id);
   if (!record) return;
@@ -501,6 +517,10 @@ function restoreHistory(id, navigateTo = true) {
     searchFilters: { ...blankScope(), ...(record.inputFilters || record.query.filters || {}) },
   });
   state.selectedCases.clear();
+  if (!record.answer || record.answer.version !== 2) {
+    state.answer = null; state.answerStatus = 'loading';
+    refreshHistoricalAnswer(record.id);
+  }
   if (navigateTo) go('#/results');
 }
 
