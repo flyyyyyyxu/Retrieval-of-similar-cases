@@ -78,6 +78,20 @@ ANTHROPIC_API_KEY=sk-ant-...     # 在 platform.claude.com 的 API Keys 页面�
 
 ## 🔎 检索流程
 
+### Vercel 演示部署
+
+从仓库根目录部署，Framework 选择 FastAPI；`main.py` 为云端入口，
+`requirements.txt` 从 `backend/uv.lock` 导出。依赖更新后重新生成：
+
+```bash
+uv export --project backend --frozen --no-dev --no-hashes --no-emit-project --format requirements-txt --output-file requirements.txt
+```
+
+线上默认使用仓库内虚构案例，不上传 `.env`、`var/` 或自有真实案例。
+未配置模型 Key 时使用已有规则回退。云端 SQLite 使用 `/tmp/qingan/app.db`，
+仅供演示：实例重启或扩容可能丢失记录，不支持跨实例共享检索与报告。
+长期使用前须接入持久数据库。当前部署通过文件上传完成，尚未关联 GitHub 自动部署。
+
 ```
 案情 ──内部要素提取──▶ recall ──▶ 候选 ~100 篇 ──rerank──▶ 前 10 篇
                                                                        │

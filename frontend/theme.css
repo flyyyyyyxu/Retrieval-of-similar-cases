@@ -150,12 +150,12 @@ select:hover, .search-scope select:hover { border-color: var(--secondary); }
 .step-waiting { opacity: 1; }
 .search-answer { padding-block-start: 18px; }
 .search-answer h2 { font: 600 1.0625rem/1.6 var(--sans); color: var(--ink); margin-block-end: 14px; }
-.search-answer-text { color: var(--ink); font: 400 var(--text-reading)/1.9 var(--sans); max-inline-size: 80ch; }
+.search-answer-text { color: var(--ink); font: 400 var(--text-reading)/1.9 var(--sans); }
 .answer-part { margin-block-start: 20px; }
 .answer-part h3 { font: 600 var(--text-ui)/1.6 var(--sans); color: var(--ink); margin-block-end: 8px; }
 .answer-part .search-answer-text + .search-answer-text { margin-block-start: 12px; }
 /* Ordered judicial reasoning and a comparison table share the response typography. */
-.judicial-points { padding-inline-start: 1.6em; margin: 0; max-inline-size: 80ch; }
+.judicial-points { padding-inline-start: 1.6em; margin: 0; }
 .judicial-points li { padding-inline-start: 6px; margin-block-end: 18px; }
 .judicial-points li::marker { font-weight: 600; color: var(--ink); }
 .judicial-points h4 { font: 600 var(--text-body)/1.8 var(--sans); margin-block-end: 4px; color: var(--ink); }

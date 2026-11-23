@@ -65,7 +65,11 @@ def test_optimize_endpoint_keeps_original_without_model(client):
     assert response.json()["optimized_text"] == text
 
 
-def test_answer_is_explicitly_pending_not_fabricated(client):
+def test_answer_is_explicitly_pending_not_fabricated(client, monkeypatch):
+    from app import api
+
+    for case in api.source().cases.values():
+        monkeypatch.setattr(case, "research_points", [])
     query = client.post("/api/query/parse", json={"text": "只有转账记录，没有借条"}).json()["query"]
     result = client.post("/api/search", json={"query": query}).json()
     response = client.post("/api/search/answer", json={"search_id": result["search_id"]})
@@ -75,6 +79,32 @@ def test_answer_is_explicitly_pending_not_fabricated(client):
         "conclusion": None, "judicial_view": None, "case_comparison": [], "judicial_points": [], "comparison_table": None, "version": 3,
     }
     assert client.post("/api/search/answer", json={"search_id": "missing"}).status_code == 404
+
+
+def test_demo_analysis_citations_resolve_to_source_paragraphs(client):
+    query = client.post("/api/query/parse", json={"text": "只有转账记录，没有借条"}).json()["query"]
+    result = client.post("/api/search", json={"query": query}).json()
+    response = client.post("/api/search/answer", json={"search_id": result["search_id"]})
+    assert response.status_code == 200
+    answer = response.json()
+    assert answer["status"] == "ready"
+    assert answer["judicial_points"] and answer["comparison_table"]
+    assert len(answer["comparison_table"]["cases"]) >= 2
+    for hit in result["hits"]:
+        case = client.get(f"/api/cases/{hit['case']['id']}").json()
+        paragraphs = {p["id"]: p["text"] for p in case["paragraphs"]}
+        sections = {s["key"]: s for s in case["content_sections"]}
+        for key in ("analysis", "overview"):
+            section = sections[key]
+            assert section["text"] and section["origin"] == "ai"
+            assert section["paragraph_ids"]
+            for ref in section["citations"]:
+                assert ref["verified"] and ref["case_id"] == case["id"]
+                assert ref["quote"] in paragraphs[ref["paragraph_id"]]
+        for point in answer["judicial_points"]:
+            for ref in point["citations"]:
+                if ref["case_id"] == case["id"]:
+                    assert ref["verified"] and ref["quote"] in paragraphs[ref["paragraph_id"]]
 
 
 def test_optimizer_has_separate_latency_budget(client):
